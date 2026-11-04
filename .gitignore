@@ -1,0 +1,37 @@
+node_modules/
+test-results/
+playwright-report/
+*.soundbard
+.DS_Store
+dist/
+.qa/
+.taste-skill/
+.impeccable/
+.tanstack/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local credentials and runtime files
+.env
+.env.*
+!.env.example
+!.env.*.example
+.data/
+*.log
+*.pem
+*.key
+
+# Installed skills are restored from the skill lock when present
+.agents/skills/
+.claude/skills/
+.codex/skills/
+.cursor/skills/
+.agent/skills/
+
+# Local Python test reports
+.coverage
+.coverage.*
+htmlcov/

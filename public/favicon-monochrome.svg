@@ -1,0 +1,7 @@
+<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+  <title>Soundbard</title>
+  <rect fill="#111111" height="40" rx="10" width="40" />
+  <g stroke="#f5f5f5" stroke-linecap="round" stroke-width="3">
+    <path d="M10 17v6M17 10v20M24 14v12M31 18v4" />
+  </g>
+</svg>
