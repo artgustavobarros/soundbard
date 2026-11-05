@@ -1,25 +1,20 @@
 import { LibraryBig, ListMusic, Square, Upload } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Library } from "../lib/model";
-import {
-  loadPreviewPadGroups,
-  type PreviewPadGroup,
-  savePreviewPadGroups,
-} from "../lib/preview-pad-groups";
+import { orderPads, reorderVisiblePads } from "../lib/pad-order";
+import type { PreviewPadGroup } from "../lib/preview-pad-groups";
 import type { WorkspaceState } from "./application";
+import { CeramicPadBoard } from "./ceramic-pad-board";
 import { CreatePadGroupDialog } from "./create-pad-group-dialog";
 import { PreviewNavigation } from "./preview-navigation";
 import {
-  PadBoard,
   PadControls,
   type Playback,
   type PreviewPad,
 } from "./soundboard-preview";
 import { Button } from "./ui/button";
+import { WorkspaceMenu } from "./workspace-menu";
 
-const groupKey = "soundbard-pad-groups";
-const actionClass =
-  "size-[44px] rounded-[4px] border-[#303030] bg-transparent p-2 text-white shadow-none hover:border-[#69aeff] hover:bg-[#242424]";
 const effectTitles: Record<string, string> = {
   "effects:all": "Efeitos",
   "effects:ambience": "Ambiente",
@@ -93,18 +88,6 @@ function padPlayback(
   };
 }
 
-function readGroups(pads: PreviewPad[]) {
-  try {
-    return loadPreviewPadGroups(
-      localStorage,
-      pads.map((pad) => pad.id),
-      groupKey
-    );
-  } catch {
-    return [];
-  }
-}
-
 function scenePads(library: Library, sceneId: string) {
   const scene = library.scenes.find((item) => item.id === sceneId);
   return new Set(
@@ -155,12 +138,13 @@ function padSet(
 
 function useSoundboardDesk(state: WorkspaceState) {
   const { library, engine, act, openPlaylist, openSound, mutate } = state;
-  const pads = useMemo(() => libraryPads(library), [library]);
+  const pads = useMemo(
+    () => orderPads(libraryPads(library), library.padOrder ?? []),
+    [library]
+  );
   const [selectedId, setSelectedId] = useState("");
   const [view, setView] = useState("all");
-  const [groups, setGroups] = useState<PreviewPadGroup[]>(() =>
-    readGroups(pads)
-  );
+  const groups = library.padGroups ?? [];
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [volumes, setVolumes] = useState<Record<string, number>>({});
   const selected = pads.find((pad) => pad.id === selectedId) ?? pads[0];
@@ -172,6 +156,17 @@ function useSoundboardDesk(state: WorkspaceState) {
     type: scene.type ?? "locations",
   }));
   const { title, visiblePads } = padSet(library, pads, groups, view);
+  const reorderPads = useCallback(
+    (ids: string[]) =>
+      mutate((next) => {
+        next.padOrder = reorderVisiblePads(
+          pads,
+          visiblePads.map((pad) => pad.id),
+          ids
+        );
+      }),
+    [mutate, pads, visiblePads]
+  );
   const openNewPlaylist = useCallback(() => openPlaylist(), [openPlaylist]);
   const showAll = useCallback(() => setView("all"), []);
   const selectScene = useCallback((id: string) => setView(`scene:${id}`), []);
@@ -183,21 +178,18 @@ function useSoundboardDesk(state: WorkspaceState) {
   const openGroup = useCallback(() => setGroupEditorOpen(true), []);
   const stopAll = useCallback(() => engine.stopAll(), [engine]);
   const saveGroup = useCallback(
-    (name: string, padIds: string[]) => {
+    async (name: string, padIds: string[]) => {
       const saved = { id: crypto.randomUUID(), name, padIds };
-      const next = [...groups, saved];
-      try {
-        if (!savePreviewPadGroups(localStorage, next, groupKey)) {
-          return false;
-        }
-      } catch {
+      const success = await mutate((next) => {
+        next.padGroups = [...(next.padGroups ?? []), saved];
+      });
+      if (!success) {
         return false;
       }
-      setGroups(next);
       setView(`group:${saved.id}`);
       return true;
     },
-    [groups]
+    [mutate]
   );
   const trigger = useCallback(
     (id: string) => {
@@ -207,15 +199,12 @@ function useSoundboardDesk(state: WorkspaceState) {
       }
       setSelectedId(id);
       const voices = voicesFor(pad, state);
-      if (pad.kind === "effect") {
-        act(() => engine.trigger(pad.id));
-      } else if (voices.length) {
-        const paused = voices.every((voice) => voice.paused);
-        for (const voice of voices) {
-          if (paused) {
-            act(() => engine.resumeVoice(voice.id));
-          } else {
-            engine.pauseVoice(voice.id);
+      if (voices.length) {
+        if (pad.kind === "playlist" || pad.playlistId) {
+          engine.stopMusic();
+        } else {
+          for (const voice of voices) {
+            engine.stopVoice(voice.id);
           }
         }
       } else if (pad.playlistId) {
@@ -230,20 +219,8 @@ function useSoundboardDesk(state: WorkspaceState) {
     if (!selected) {
       return;
     }
-    const voices = voicesFor(selected, state);
-    if (!voices.length) {
-      trigger(selected.id);
-      return;
-    }
-    const paused = voices.every((voice) => voice.paused);
-    for (const voice of voices) {
-      if (paused) {
-        act(() => engine.resumeVoice(voice.id));
-      } else {
-        engine.pauseVoice(voice.id);
-      }
-    }
-  }, [act, engine, selected, state, trigger]);
+    trigger(selected.id);
+  }, [selected, trigger]);
   const stopSelected = useCallback(() => {
     if (!selected) {
       return;
@@ -277,41 +254,43 @@ function useSoundboardDesk(state: WorkspaceState) {
       );
     }
   }, [act, engine, selected, state.playback.playlistId]);
-  const changeVolume = useCallback(
-    ([value]: number[]) => {
-      if (!selected) {
+  const changePadVolume = useCallback(
+    (id: string, value: number) => {
+      const pad = pads.find((item) => item.id === id);
+      if (!pad) {
         return;
       }
-      setVolumes((previous) => ({ ...previous, [selected.id]: value }));
-      if (selected.kind === "playlist") {
+      setVolumes((previous) => ({ ...previous, [id]: value }));
+      if (pad.kind === "playlist") {
         engine.setMusicVolume(value / 100);
       } else {
-        for (const voice of voicesFor(selected, state)) {
+        for (const voice of voicesFor(pad, state)) {
           engine.setVolume(voice.id, value / 100);
         }
       }
     },
-    [engine, selected, state]
+    [engine, pads, state]
   );
-  const commitVolume = useCallback(
-    ([value]: number[]) => {
-      if (!selected || selected.kind === "playlist") {
+  const commitPadVolume = useCallback(
+    (id: string, value: number) => {
+      const pad = pads.find((item) => item.id === id);
+      if (!pad || pad.kind === "playlist") {
         return;
       }
       mutate((next) => {
-        const sound = next.sounds.find((item) => item.id === selected.id);
+        const sound = next.sounds.find((item) => item.id === id);
         if (sound) {
           sound.volume = value / 100;
         }
       }).then(() =>
         setVolumes((previous) => {
           const next = { ...previous };
-          delete next[selected.id];
+          delete next[id];
           return next;
         })
       );
     },
-    [mutate, selected]
+    [mutate, pads]
   );
   const changeMaster = useCallback(
     ([value]: number[]) => engine.setMaster(value / 100),
@@ -324,42 +303,62 @@ function useSoundboardDesk(state: WorkspaceState) {
       }),
     [mutate]
   );
-  const editSelected = useCallback(() => {
-    if (!selected) {
-      return;
-    }
-    const playlist = library.playlists.find(
-      (item) => item.id === selected.playlistId
-    );
-    const sound = library.sounds.find((item) => item.id === selected.id);
-    if (playlist) {
-      openPlaylist(playlist);
-    } else if (sound) {
-      openSound(sound);
-    }
-  }, [library, openPlaylist, openSound, selected]);
-  const toggleLoop = useCallback(() => {
-    if (!selected || selected.kind === "playlist") {
-      return;
-    }
-    const loop = !selected.loop;
-    for (const voice of voicesFor(selected, state)) {
-      engine.setLoop(voice.id, loop);
-    }
-    mutate((next) => {
-      const sound = next.sounds.find((item) => item.id === selected.id);
-      if (sound) {
-        sound.loop = loop;
+  const editPad = useCallback(
+    (id: string) => {
+      const pad = pads.find((item) => item.id === id);
+      if (!pad) {
+        return;
       }
-    });
-  }, [engine, mutate, selected, state]);
+      setSelectedId(id);
+      const playlist = library.playlists.find(
+        (item) => item.id === pad.playlistId
+      );
+      const sound = library.sounds.find((item) => item.id === id);
+      if (playlist) {
+        openPlaylist(playlist);
+      } else if (sound) {
+        openSound(sound);
+      }
+    },
+    [library, openPlaylist, openSound, pads]
+  );
+  const editSelected = useCallback(() => {
+    if (selected) {
+      editPad(selected.id);
+    }
+  }, [editPad, selected]);
+  const changePadLoop = useCallback(
+    (id: string, loop: boolean) => {
+      const pad = pads.find((item) => item.id === id);
+      if (!pad || pad.kind === "playlist") {
+        return;
+      }
+      for (const voice of voicesFor(pad, state)) {
+        engine.setLoop(voice.id, loop);
+      }
+      mutate((next) => {
+        const sound = next.sounds.find((item) => item.id === id);
+        if (sound) {
+          sound.loop = loop;
+        }
+      });
+    },
+    [engine, mutate, pads, state]
+  );
+  const toggleLoop = useCallback(() => {
+    if (selected) {
+      changePadLoop(selected.id, !selected.loop);
+    }
+  }, [changePadLoop, selected]);
   const current = selected ? playback[selected.id] : null;
   return {
     changeMaster,
-    changeVolume,
+    changePadLoop,
+    changePadVolume,
     commitMaster,
-    commitVolume,
+    commitPadVolume,
     current,
+    editPad,
     editSelected,
     groupEditorOpen,
     groups,
@@ -369,6 +368,7 @@ function useSoundboardDesk(state: WorkspaceState) {
     pads,
     playback,
     previousTrack,
+    reorderPads,
     saveGroup,
     scenes,
     selectEffects,
@@ -376,7 +376,6 @@ function useSoundboardDesk(state: WorkspaceState) {
     selectGroup,
     selectScene,
     setGroupEditorOpen,
-    setSelectedId,
     showAll,
     stopAll,
     stopSelected,
@@ -412,77 +411,126 @@ function DeskHeader({
     stopAll,
     view,
   } = desk;
-  const { library, openImport } = state;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { openImport } = state;
+  const showPads = useCallback(() => {
+    setMenuOpen(false);
+    showAll();
+  }, [showAll]);
+  const manage = useCallback(() => {
+    setMenuOpen(false);
+    onManage();
+  }, [onManage]);
+  const importAudio = useCallback(() => {
+    setMenuOpen(false);
+    openImport();
+  }, [openImport]);
+  const newPlaylist = useCallback(() => {
+    setMenuOpen(false);
+    openNewPlaylist();
+  }, [openNewPlaylist]);
+  const stop = useCallback(() => {
+    setMenuOpen(false);
+    stopAll();
+  }, [stopAll]);
+  const createGroup = useCallback(() => {
+    setMenuOpen(false);
+    openGroup();
+  }, [openGroup]);
+  const chooseScene = useCallback(
+    (id: string) => {
+      setMenuOpen(false);
+      selectScene(id);
+    },
+    [selectScene]
+  );
+  const chooseEffects = useCallback(
+    (kind: "all" | "ambience" | "effect") => {
+      setMenuOpen(false);
+      selectEffects(kind);
+    },
+    [selectEffects]
+  );
+  const chooseGroup = useCallback(
+    (id: string) => {
+      setMenuOpen(false);
+      selectGroup(id);
+    },
+    [selectGroup]
+  );
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2">
-      <header className="flex min-h-[44px] min-w-0 flex-[1_1_220px] items-center justify-between gap-2">
-        <Button
-          aria-label="Todos os pads"
-          className="h-[44px] min-w-0 flex-[1_1_100px] flex-col items-start gap-0 bg-transparent p-0 text-white hover:bg-transparent"
-          onClick={showAll}
-          variant="ghost"
-        >
-          <span className="w-full truncate text-left text-[21px] font-bold tracking-[-0.03em]">
-            soundbard
-          </span>
-          <span className="w-full truncate text-left text-[11px] font-normal text-[#a6a6a6]">
-            <span>{library.sounds.length} sons</span>
-            {" · "}
-            <span>
-              {state.offlineReady ? "Pronto para offline" : "Biblioteca local"}
-            </span>
-          </span>
-        </Button>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            aria-label="Biblioteca"
-            className={actionClass}
-            onClick={onManage}
-            title="Biblioteca e organização"
-            variant="outline"
-          >
-            <LibraryBig aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label="Importar áudios"
-            className={actionClass}
-            disabled={Boolean(state.busy)}
-            onClick={openImport}
-            title="Importar áudios"
-            variant="outline"
-          >
-            <Upload aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label="Nova playlist"
-            className={actionClass}
-            onClick={openNewPlaylist}
-            title="Nova playlist"
-            variant="outline"
-          >
-            <ListMusic aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label="Parar tudo"
-            className={`${actionClass} text-[#ff6666]`}
-            onClick={stopAll}
-            title="Parar tudo"
-            variant="outline"
-          >
-            <Square aria-hidden="true" />
-          </Button>
-        </div>
-      </header>
+    <WorkspaceMenu
+      onAddAudio={openImport}
+      onOpenChange={setMenuOpen}
+      open={menuOpen}
+    >
       <PreviewNavigation
         groups={groups}
-        onCreateGroup={openGroup}
-        onEffects={selectEffects}
-        onGroup={selectGroup}
-        onScene={selectScene}
+        onCreateGroup={createGroup}
+        onEffects={chooseEffects}
+        onGroup={chooseGroup}
+        onScene={chooseScene}
         scenes={scenes}
         selected={view}
       />
-    </div>
+      <nav aria-label="Ações da mesa" className="grid gap-2">
+        <Button className="justify-start" onClick={showPads} variant="ghost">
+          Todos os pads
+        </Button>
+        <Button className="justify-start" onClick={manage} variant="ghost">
+          <LibraryBig aria-hidden="true" />
+          Biblioteca
+        </Button>
+        <Button
+          className="justify-start"
+          disabled={Boolean(state.busy)}
+          onClick={importAudio}
+          variant="ghost"
+        >
+          <Upload aria-hidden="true" />
+          Importar áudios
+        </Button>
+        <Button className="justify-start" onClick={newPlaylist} variant="ghost">
+          <ListMusic aria-hidden="true" />
+          Nova playlist
+        </Button>
+        <Button
+          className="text-destructive justify-start"
+          onClick={stop}
+          variant="ghost"
+        >
+          <Square aria-hidden="true" />
+          Parar tudo
+        </Button>
+      </nav>
+      <div className="text-muted-foreground mt-auto grid gap-3 text-[12px]">
+        {Boolean(state.migrationNotice) && (
+          <p role="status">{state.migrationNotice}</p>
+        )}
+        {state.legacyRecoveryAvailable === true && (
+          <>
+            <p>
+              A biblioteca antiga deste navegador foi preservada. Exporte-a para
+              recuperar seus sons sem substituir a biblioteca central.
+            </p>
+            <Button
+              disabled={Boolean(state.busy)}
+              onClick={state.exportLegacyLibrary}
+              variant="outline"
+            >
+              Exportar biblioteca antiga
+            </Button>
+          </>
+        )}
+        <p>
+          {state.library.sounds.length} sons ·{" "}
+          {state.connection === "online"
+            ? "Servidor conectado"
+            : "Cache offline · alterações indisponíveis"}
+        </p>
+        {state.offlineReady === true && <p>Pronto para offline</p>}
+      </div>
+    </WorkspaceMenu>
   );
 }
 
@@ -493,23 +541,20 @@ function DeskContent({
   desk: DeskState;
   state: WorkspaceState;
 }) {
-  const {
-    visiblePads,
-    setSelectedId,
-    trigger,
-    playback,
-    selected,
-    title,
-    pads,
-    showAll,
-  } = desk;
+  const { visiblePads, trigger, playback, selected, title, pads, showAll } =
+    desk;
   const { openImport } = state;
   return visiblePads.length ? (
-    <PadBoard
-      onSelect={setSelectedId}
+    <CeramicPadBoard
+      onEdit={desk.editPad}
+      onLoop={desk.changePadLoop}
+      onReorder={desk.reorderPads}
       onTrigger={trigger}
+      onVolume={desk.changePadVolume}
+      onVolumeCommit={desk.commitPadVolume}
       pads={visiblePads}
       playback={playback}
+      reorderDisabled={Boolean(state.busy)}
       selected={selected?.id ?? ""}
       title={title}
     />
@@ -523,13 +568,13 @@ function DeskContent({
           ? "Nenhum pad neste conjunto"
           : "Sua mesa começa com seus sons"}
       </h1>
-      <p className="max-w-[320px] text-[13px] text-[#a6a6a6]">
+      <p className="text-muted-foreground max-w-[320px] text-[13px]">
         {pads.length
           ? "Escolha outro conjunto ou volte para todos os pads."
           : "Importe músicas, ambientes e efeitos. Cada áudio e playlist aparece como um pad."}
       </p>
       <Button
-        className="border-[#444] bg-[#191919] text-white"
+        className="border-border text-foreground bg-[var(--surface-raised)] shadow-[var(--shadow-raised)]"
         onClick={pads.length ? showAll : openImport}
         variant="outline"
       >
@@ -557,8 +602,6 @@ function DeskControls({
     previousTrack,
     stopSelected,
     toggleSelected,
-    changeVolume,
-    commitVolume,
   } = desk;
   return selected && current ? (
     <PadControls
@@ -571,13 +614,11 @@ function DeskControls({
       onPrevious={previousTrack}
       onStop={stopSelected}
       onToggle={toggleSelected}
-      onVolume={changeVolume}
-      onVolumeCommit={commitVolume}
       pad={selected}
       playback={current}
     />
   ) : (
-    <div className="shrink-0 rounded-[5px] bg-[#111] p-3 text-[12px] text-[#a6a6a6]">
+    <div className="text-muted-foreground shrink-0 rounded-lg bg-[var(--surface)] p-3 text-[12px]">
       Tudo pronto para importar sua biblioteca.
     </div>
   );
@@ -594,16 +635,16 @@ export function SoundboardDesk({
   const { groupEditorOpen, setGroupEditorOpen, saveGroup, pads } = desk;
   return (
     <div
-      className="fixed inset-0 z-10 bg-[#080808] text-[#fafafa] [--background:#080808] [--border:#303030] [--foreground:#fafafa] [--muted:#a6a6a6] [--primary-foreground:#080808] [--primary:#fafafa] [--ring:#69aeff] [--secondary:#242424] [&_*]:[scrollbar-color:#444_#111] [&_button:focus-visible]:outline-[#69aeff]!"
+      className="bg-background text-foreground fixed inset-0 z-10"
       data-soundboard-desk
     >
-      <div className="mx-auto flex h-dvh max-w-[1300px] flex-col gap-2 overflow-hidden px-[12px] pt-[calc(10px+env(safe-area-inset-top))] pb-[calc(8px+env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex h-dvh max-w-[1280px] flex-col gap-4 overflow-hidden px-4 pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(12px+env(safe-area-inset-bottom))] md:gap-5 md:px-8 md:pt-7">
         <DeskHeader desk={desk} onManage={onManage} state={state} />
         <DeskContent desk={desk} state={state} />
         <DeskControls desk={desk} state={state} />
         {groupEditorOpen === true && (
           <CreatePadGroupDialog
-            description="Reúna sons e playlists em um conjunto de pads. O grupo fica salvo neste navegador."
+            description="Reúna sons e playlists em um conjunto de pads. O grupo fica salvo no servidor e aparece nos seus aparelhos."
             onOpenChange={setGroupEditorOpen}
             onSave={saveGroup}
             pads={pads}

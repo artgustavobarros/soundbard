@@ -28,6 +28,31 @@ def test_rejects_external_origins_before_starting_download(client):
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://192.168.1.66:9999",
+        "http://100.101.102.103:9999",
+        "http://127.0.0.1:9999",
+        "http://localhost:9999",
+        "file://localhost",
+    ],
+)
+def test_rejects_unconfigured_origins_even_on_local_networks(client, origin):
+    response = client.post("/api/audio-jobs/upload", headers={"origin": origin})
+    assert response.status_code == 403
+
+
+def test_accepts_only_the_explicit_extra_origin(tmp_path):
+    origin = "http://192.168.1.10:3000"
+    with TestClient(create_app(tmp_path, origin=origin), base_url=origin) as local:
+        assert local.get("/api/health", headers={"origin": origin}).status_code == 200
+        assert (
+            local.get("/api/health", headers={"origin": "http://192.168.1.10:9999"}).status_code
+            == 403
+        )
+
+
 def test_rejects_dns_rebinding_hosts(client):
     response = client.get("/api/health", headers={"host": "site-externo.example"})
     assert response.status_code == 400

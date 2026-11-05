@@ -1,6 +1,7 @@
 import { AudioLines, Youtube } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback } from "react";
+import { restoreWorkspaceFocus } from "../lib/dialog-focus";
 import type { Layer, Library, Playlist, Scene, Sound } from "../lib/model";
 import { TagsInput } from "./tags-input";
 import { Button } from "./ui/button";
@@ -330,10 +331,12 @@ export function Editors({
   onYouTube,
   onFile,
   onTrim,
+  onDeleteSound,
 }: {
   onYouTube: () => void;
   onFile: () => void;
   onTrim: (sound: Sound) => void;
+  onDeleteSound?: (sound: Sound) => void;
   editor: Editor | null;
   library: Library;
   busy: string;
@@ -360,13 +363,23 @@ export function Editors({
       onTrim(editor.sound);
     }
   }, [editor, onTrim]);
+  const removeSound = useCallback(() => {
+    if (editor?.type === "sound" && onDeleteSound) {
+      const { sound } = editor;
+      close();
+      onDeleteSound(sound);
+    }
+  }, [close, editor, onDeleteSound]);
   if (!editor) {
     return null;
   }
   const copy = editorCopy(editor);
   return (
     <Dialog onOpenChange={handleClose} open>
-      <DialogContent className="editor">
+      <DialogContent
+        className="editor"
+        onCloseAutoFocus={restoreWorkspaceFocus}
+      >
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>{copy.description}</DialogDescription>
@@ -408,24 +421,38 @@ export function Editors({
                   {busy}
                 </p>
               ) : null}
-              <div className="dialog-actions">
-                <Button
-                  disabled={Boolean(busy)}
-                  onClick={close}
-                  type="button"
-                  variant="outline"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  disabled={Boolean(busy)}
-                  type="submit"
-                  variant={
-                    editor.type === "confirm" ? "destructive" : "default"
-                  }
-                >
-                  {copy.label}
-                </Button>
+              <div className="dialog-actions flex flex-wrap items-center justify-between gap-2">
+                {editor.type === "sound" && onDeleteSound ? (
+                  <Button
+                    disabled={Boolean(busy)}
+                    onClick={removeSound}
+                    type="button"
+                    variant="destructive"
+                  >
+                    Excluir som
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    disabled={Boolean(busy)}
+                    onClick={close}
+                    type="button"
+                    variant="outline"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    disabled={Boolean(busy)}
+                    type="submit"
+                    variant={
+                      editor.type === "confirm" ? "destructive" : "default"
+                    }
+                  >
+                    {copy.label}
+                  </Button>
+                </div>
               </div>
             </form>
           </>

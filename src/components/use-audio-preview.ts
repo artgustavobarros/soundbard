@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Sound } from "../lib/model";
-import type { Repository } from "../lib/repository";
+import type { ServerRepository as Repository } from "../lib/server-repository";
 
 function disposeAudio(audio: HTMLAudioElement | null) {
   if (!audio) {

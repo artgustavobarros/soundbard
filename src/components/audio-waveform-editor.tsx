@@ -32,7 +32,7 @@ function waveformPath(peaks: number[]) {
   return `M0,50 L${top} L1000,50 L${bottom} Z`;
 }
 const buttonClass =
-  "min-h-[44px] border-[#444] bg-transparent px-3 text-white hover:border-[#69aeff] hover:bg-[#242424]";
+  "min-h-[44px] border-border bg-transparent px-3 text-foreground hover:border-ring hover:bg-secondary";
 
 export function AudioWaveformEditor({
   waveform,
@@ -68,15 +68,15 @@ export function AudioWaveformEditor({
   return (
     <section
       aria-label="Prévia e seleção do corte"
-      className="grid min-w-0 gap-3 border-y border-[#303030] py-3"
+      className="border-border grid min-w-0 gap-3 border-y py-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-[#b8b8b8]">
+      <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-[12px]">
         <span>Forma de onda do áudio</span>
         <span className="tabular-nums">
           {formatDuration(start)} – {formatDuration(end)}
         </span>
       </div>
-      <div className="relative h-[96px] min-w-0 bg-[#181818]">
+      <div className="relative h-[96px] min-w-0 overflow-hidden rounded-lg bg-(--surface-inset) shadow-(--shadow-inset)">
         <svg
           aria-label="Forma de onda do áudio"
           className="pointer-events-none absolute inset-0 size-full"
@@ -99,7 +99,7 @@ export function AudioWaveformEditor({
             </clipPath>
           </defs>
           <line
-            stroke="#444"
+            stroke="var(--border)"
             strokeWidth="1"
             vectorEffect="non-scaling-stroke"
             x1="0"
@@ -107,11 +107,11 @@ export function AudioWaveformEditor({
             y1="50"
             y2="50"
           />
-          <path d={path} fill="#666" />
-          <path clipPath={`url(#${clipId})`} d={path} fill="#eee" />
+          <path d={path} fill="var(--muted)" opacity="0.4" />
+          <path clipPath={`url(#${clipId})`} d={path} fill="var(--primary)" />
           {!ready && (
             <line
-              stroke="#69aeff"
+              stroke="var(--foreground)"
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
               x1={position}
@@ -123,7 +123,6 @@ export function AudioWaveformEditor({
         </svg>
         <Slider
           aria-label="Intervalo do corte"
-          className="h-full [&_[data-slot=slider-range]]:bg-white/5 [&_[data-slot=slider-thumb]]:h-[96px] [&_[data-slot=slider-thumb]]:w-[10px] [&_[data-slot=slider-thumb]]:rounded-[2px] [&_[data-slot=slider-thumb]]:border-[#ff8848] [&_[data-slot=slider-thumb]]:bg-[#ff8848]/30 [&_[data-slot=slider-track]]:h-full [&_[data-slot=slider-track]]:rounded-none [&_[data-slot=slider-track]]:bg-transparent"
           disabled={disabled || ready}
           max={length}
           min={0}
@@ -135,6 +134,7 @@ export function AudioWaveformEditor({
             Math.max(0, Math.min(length, start)),
             Math.max(0, Math.min(length, end)),
           ]}
+          variant="waveform"
         />
       </div>
       {!ready && (
@@ -156,7 +156,7 @@ export function AudioWaveformEditor({
             </Button>
             <output
               aria-label="Posição da prévia"
-              className="text-[12px] text-[#b8b8b8] tabular-nums"
+              className="text-muted-foreground text-[12px] tabular-nums"
             >
               {formatDuration(time)} / {formatDuration(length)}
             </output>

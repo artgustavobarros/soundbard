@@ -1,9 +1,11 @@
 """API de processamento e servidor da interface local do Soundbard."""
 
+import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -11,6 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from backend.library_routes import router as library_router
+from backend.library_store import LibraryStore
 from backend.media import MediaService, ffmpeg_path, normalize_youtube_url
 
 FRONTEND = Path(__file__).resolve().parent.parent / "dist" / "client"
@@ -51,23 +55,56 @@ async def lifespan(application: FastAPI):
         application.state.uploads = Path(directory) / "uploads"
         application.state.uploads.mkdir()
         application.state.media = MediaService(Path(directory) / "jobs")
+        application.state.library_store = None
         try:
+            if application.state.library_database_url:
+                application.state.library_store = await run_in_threadpool(
+                    LibraryStore,
+                    application.state.library_database_url,
+                    application.state.library_data_dir,
+                )
             yield
         finally:
+            if application.state.library_store is not None:
+                await run_in_threadpool(application.state.library_store.close)
             await run_in_threadpool(application.state.media.close)
 
 
-def create_app(frontend: Path = FRONTEND) -> FastAPI:
+def create_app(
+    frontend: Path = FRONTEND,
+    *,
+    database_url: str | None = None,
+    data_dir: Path | None = None,
+    origin: str | None = None,
+) -> FastAPI:
+    local_origins = set(LOCAL_ORIGINS)
+    allowed_hosts = ["localhost", "127.0.0.1", "[::1]"]
+    if origin:
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+            or "*" in parsed.netloc
+        ):
+            raise ValueError("SOUNDBARD_ORIGIN deve ser uma origem HTTP/HTTPS explícita.")
+        local_origins.add(origin.rstrip("/"))
+        allowed_hosts.append(parsed.hostname)
     application = FastAPI(title="Soundbard local", version="0.1.0", lifespan=lifespan)
-    application.add_middleware(
-        TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]"]
-    )
+    application.state.library_database_url = database_url
+    application.state.library_data_dir = data_dir or Path(".data")
+    application.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+    application.include_router(library_router)
 
     @application.middleware("http")
     async def local_requests(request: Request, call_next):
         is_api = request.url.path.startswith("/api/")
         origin = request.headers.get("origin")
-        if is_api and origin is not None and origin not in LOCAL_ORIGINS:
+        if is_api and origin is not None and origin not in local_origins:
             return JSONResponse(
                 {"detail": "A API aceita apenas a interface local do Soundbard."},
                 status_code=403,
@@ -186,4 +223,8 @@ def create_app(frontend: Path = FRONTEND) -> FastAPI:
     return application
 
 
-app = create_app()
+app = create_app(
+    database_url=os.environ.get("DATABASE_URL") or None,
+    data_dir=Path(os.environ.get("SOUNDBARD_DATA_DIR", ".data")),
+    origin=os.environ.get("SOUNDBARD_ORIGIN") or None,
+)

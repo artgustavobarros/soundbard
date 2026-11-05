@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
-import { wav } from "./fixtures";
+import { expect, type Page } from "@playwright/test";
+import { openDeskAction, test, wav } from "./fixtures";
 
 const PREPARED_PAD = /Trilha recortada/u;
 const ORIGINAL_PAD = /Áudio original/u;
@@ -11,9 +11,7 @@ const jobId = "12345678-1234-1234-1234-123456789abc";
 const clipId = "22345678-1234-1234-1234-123456789abc";
 
 async function openYouTube(page: Page) {
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Importar do YouTube" })
     .click();
@@ -21,9 +19,7 @@ async function openYouTube(page: Page) {
 }
 
 async function importOriginal(page: Page) {
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -211,9 +207,8 @@ test("corta um arquivo local com FFmpeg e preserva o original na biblioteca", as
   await page.goto("/");
   await importOriginal(page);
   await page
-    .getByRole("button", { exact: true, name: "Controlar Áudio original" })
+    .getByRole("button", { exact: true, name: "Editar Áudio original" })
     .click();
-  await page.getByRole("button", { exact: true, name: "Editar pad" }).click();
   await page.getByRole("button", { exact: true, name: "Cortar áudio" }).click();
   await expect(
     page.getByRole("img", { exact: true, name: "Forma de onda do áudio" })

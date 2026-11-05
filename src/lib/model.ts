@@ -36,6 +36,8 @@ export interface Scene {
 }
 export interface Library {
   master: number;
+  padGroups?: { id: string; name: string; padIds: string[] }[];
+  padOrder?: string[];
   playlists: Playlist[];
   revision: number;
   scenes: Scene[];
@@ -66,9 +68,48 @@ export function removeFromPlaylist(
     ),
   };
 }
+export function deletePlaylist(library: Library, playlistId: string): Library {
+  return {
+    ...library,
+    ...(library.padOrder
+      ? {
+          padOrder: library.padOrder.filter(
+            (id) => id !== `playlist:${playlistId}`
+          ),
+        }
+      : {}),
+    ...(library.padGroups
+      ? {
+          padGroups: library.padGroups.map((group) => ({
+            ...group,
+            padIds: group.padIds.filter(
+              (id) => id !== `playlist:${playlistId}`
+            ),
+          })),
+        }
+      : {}),
+    playlists: library.playlists.filter(
+      (playlist) => playlist.id !== playlistId
+    ),
+    scenes: library.scenes.map((scene) =>
+      scene.playlistId === playlistId ? { ...scene, playlistId: null } : scene
+    ),
+  };
+}
 export function deleteSound(library: Library, soundId: string): Library {
   return {
     ...library,
+    ...(library.padOrder
+      ? { padOrder: library.padOrder.filter((id) => id !== soundId) }
+      : {}),
+    ...(library.padGroups
+      ? {
+          padGroups: library.padGroups.map((group) => ({
+            ...group,
+            padIds: group.padIds.filter((id) => id !== soundId),
+          })),
+        }
+      : {}),
     playlists: library.playlists.map((p) => ({
       ...p,
       soundIds: p.soundIds.filter((id) => id !== soundId),

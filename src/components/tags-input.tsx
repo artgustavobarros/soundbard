@@ -177,7 +177,7 @@ export function TagsInput({
             aria-describedby={hintId}
             aria-expanded={expanded}
             autoComplete="off"
-            className="min-h-11 border-[#444] bg-[#191919] text-base text-white"
+            className="border-border text-foreground min-h-[44px] bg-(--surface-raised) text-base"
             disabled={disabled}
             id={inputId}
             maxLength={60}
@@ -195,7 +195,7 @@ export function TagsInput({
           <Popover.Content
             align="start"
             aria-label="Sugestões de tags"
-            className="z-[60] grid max-h-[min(14rem,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-md border border-[#444] bg-[#191919] p-1 shadow-lg"
+            className="border-border z-[60] grid max-h-[min(14rem,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-md border bg-(--surface-raised) p-1 shadow-(--shadow-raised)"
             collisionPadding={12}
             id={listId}
             onCloseAutoFocus={preventAutoFocus}
@@ -210,7 +210,7 @@ export function TagsInput({
               return (
                 <button
                   aria-selected={index === activeIndex}
-                  className="min-h-11 min-w-0 rounded-sm px-3 py-2 text-left text-sm break-words text-white hover:bg-[#303030] focus-visible:outline-2 focus-visible:outline-[#69aeff] aria-selected:bg-[#303030]"
+                  className="text-foreground hover:bg-secondary focus-visible:outline-ring aria-selected:bg-secondary min-h-[44px] min-w-0 rounded-sm px-3 py-2 text-left text-sm break-words focus-visible:outline-2"
                   data-tag={tag}
                   id={`${listId}-${index}`}
                   key={tagKey(tag)}
@@ -228,20 +228,20 @@ export function TagsInput({
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
-      <p className="text-xs text-[#b8b8b8]" id={hintId}>
+      <p className="text-muted-foreground text-xs" id={hintId}>
         Digite para buscar. Enter adiciona; as setas escolhem uma sugestão.
       </p>
       {selected.length > 0 ? (
         <ul aria-label="Tags selecionadas" className="flex flex-wrap gap-1.5">
           {selected.map((tag) => (
             <li
-              className="inline-flex max-w-full items-center rounded-md border border-[#444] bg-[#222] pl-2.5 text-sm text-white"
+              className="border-border bg-secondary text-foreground inline-flex max-w-full items-center rounded-md border pl-2.5 text-sm"
               key={tagKey(tag)}
             >
               <span className="min-w-0 break-words">{tag}</span>
               <Button
                 aria-label={`Remover tag ${tag}`}
-                className="size-11 hover:bg-[#333]"
+                className="hover:bg-secondary size-[44px]"
                 data-tag={tag}
                 disabled={disabled}
                 onClick={remove}

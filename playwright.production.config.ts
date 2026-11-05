@@ -5,9 +5,10 @@ export default defineConfig({
   testIgnore: [],
   testMatch: "**/offline.spec.ts",
   webServer: {
-    command: "pnpm start",
+    command: "node scripts/e2e-server.ts --production",
+    gracefulShutdown: { signal: "SIGTERM", timeout: 15_000 },
     reuseExistingServer: false,
-    timeout: 30_000,
-    url: "http://127.0.0.1:3000",
+    timeout: 120_000,
+    url: `${base.use?.baseURL}/api/library`,
   },
 });

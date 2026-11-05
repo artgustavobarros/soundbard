@@ -151,7 +151,7 @@ const playbackActions = {
   playing: "Pausar pad",
 };
 const controlButton =
-  "size-[44px] rounded-[4px] border border-[#303030] bg-transparent shadow-none hover:bg-[#242424] focus-visible:outline-[#69aeff]!";
+  "pad-surface size-[44px] border text-foreground focus-visible:outline-ring!";
 
 function initialPlayback(): Record<string, Playback> {
   return Object.fromEntries(
@@ -259,18 +259,18 @@ function Pad({
       <Button
         aria-pressed={playback.status === "playing"}
         className={cn(
-          "size-full min-w-0 flex-col items-stretch justify-between overflow-hidden rounded-[5px] border border-b-[3px] border-[#343434] border-b-[#454545] bg-[#191919] p-[10px] text-left whitespace-normal shadow-none transition-colors hover:border-b-[#69aeff] hover:bg-[#1e1e1e] focus-visible:outline-[#69aeff]!",
-          selected && "border-[#aaa]",
+          "border-border hover:border-b-primary focus-visible:outline-ring! size-full min-w-0 flex-col items-stretch justify-between overflow-hidden rounded-[5px] border border-b-[3px] border-b-[var(--border-strong)] bg-[var(--surface-inset)] p-[10px] text-left whitespace-normal shadow-none transition-colors hover:bg-[var(--surface-hover)]",
+          selected && "border-primary",
           playback.status === "playing" &&
-            "border-b-[#ff8848] bg-[#1c1b1a] hover:border-b-[#ff8848]"
+            "border-b-[var(--playback)] bg-[var(--selected)] hover:border-b-[var(--playback)]"
         )}
         onClick={trigger}
         variant="ghost"
       >
         <span
           className={cn(
-            "flex items-center gap-2 pr-[34px] text-[11px] font-normal text-[#a6a6a6]",
-            playback.status === "playing" && "text-[#ff8848]"
+            "text-muted-foreground flex items-center gap-2 pr-[34px] text-[11px] font-normal",
+            playback.status === "playing" && "text-[var(--playback)]"
           )}
         >
           <PadIcon aria-hidden="true" className="size-[15px]" />
@@ -280,11 +280,11 @@ function Pad({
           <span className="block text-[14px] leading-tight font-semibold">
             {pad.name}
           </span>
-          <span className="mt-1 block truncate text-[11px] font-normal text-[#a6a6a6]">
+          <span className="text-muted-foreground mt-1 block truncate text-[11px] font-normal">
             {sourceLabel}
           </span>
           {Boolean(playlist) && (
-            <span className="mt-1 block truncate text-[11px] font-normal text-[#d0d0d0]">
+            <span className="text-muted-foreground mt-1 block truncate text-[11px] font-normal">
               {playback.status === "idle"
                 ? `${playlist?.tracks.length} músicas`
                 : playlist?.tracks[playback.track]}
@@ -294,7 +294,7 @@ function Pad({
       </Button>
       <Button
         aria-label={`Controlar ${pad.name}`}
-        className="absolute top-0 right-0 size-[44px] rounded-[3px] bg-transparent p-2 text-[#a6a6a6] hover:bg-[#303030] hover:text-white"
+        className="text-muted-foreground hover:bg-secondary hover:text-foreground absolute top-0 right-0 size-[44px] rounded-[3px] bg-transparent p-2"
         onClick={select}
         size="icon"
         title={`Controlar ${pad.name} sem interromper a reprodução`}
@@ -342,7 +342,7 @@ export function PadBoard({
         >
           {title}
         </h1>
-        <p className="shrink-0 text-[11px] text-[#a6a6a6]">
+        <p className="text-muted-foreground shrink-0 text-[11px]">
           {pads.length} pads · sons e playlists
         </p>
       </div>
@@ -399,13 +399,13 @@ function VolumeControl({
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center justify-between gap-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold">
         <span>{label}</span>
         <output className="tabular-nums">{value}%</output>
       </div>
       <Slider
         aria-label={label}
-        className="h-[28px]"
+        className="h-[28px] [&_[data-slot=slider-range]]:bg-[#151517] [&_[data-slot=slider-thumb]]:border-[#151517] [&_[data-slot=slider-thumb]]:bg-[#f7f7f7] [&_[data-slot=slider-track]]:bg-[#151517]"
         onValueChange={onChange}
         onValueCommit={onCommit}
         value={[value]}
@@ -430,7 +430,7 @@ function PadPreviousControl({
     <Button
       aria-label={showLoop ? "Loop do pad" : "Música anterior"}
       aria-pressed={showLoop ? Boolean(loop) : undefined}
-      className={cn(controlButton, showLoop && loop && "text-[#ff8848]")}
+      className={cn(controlButton, showLoop && loop && "text-primary")}
       disabled={!(playlist || onLoop)}
       onClick={showLoop ? onLoop : onPrevious}
       size="icon"
@@ -495,7 +495,7 @@ export function PadControls({
   onStop: () => void;
   onPrevious: () => void;
   onNext: () => void;
-  onVolume: (values: number[]) => void;
+  onVolume?: (values: number[]) => void;
   onMaster: (values: number[]) => void;
   onVolumeCommit?: (values: number[]) => void;
   onMasterCommit?: (values: number[]) => void;
@@ -518,21 +518,23 @@ export function PadControls({
   return (
     <section
       aria-label="Controles do pad"
-      className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-[5px] bg-[#111] p-[12px]"
+      className="pad-surface flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border p-3 md:p-4"
     >
       <div className="min-w-0 flex-[1_1_70px]">
         <div className="flex items-center gap-2">
           <h2
-            className="min-w-0 truncate text-[14px]! font-semibold!"
+            className="min-w-0 truncate text-[14px]! font-extrabold! uppercase"
             title={pad.name}
           >
             {pad.name}
           </h2>
-          <span className="shrink-0 text-[11px] text-[#a6a6a6]">
+          <span className="text-muted-foreground shrink-0 text-[11px]">
             {statusLabels[playback.status]}
           </span>
         </div>
-        <p className="mt-1 truncate text-[11px] text-[#a6a6a6]">{detail}</p>
+        <p className="text-muted-foreground mt-1 truncate text-[11px] font-semibold">
+          {detail}
+        </p>
       </div>
       <div className="flex shrink-0 justify-end gap-1">
         <PadPreviousControl
@@ -543,7 +545,7 @@ export function PadControls({
         />
         <Button
           aria-label={action}
-          className={cn(controlButton, playing && "text-[#ff8848]")}
+          className={cn(controlButton, playing && "text-primary")}
           onClick={onToggle}
           size="icon"
           variant="ghost"
@@ -565,13 +567,21 @@ export function PadControls({
           playlist={Boolean(playlist)}
         />
       </div>
-      <div className="grid min-w-[220px] flex-[2_1_220px] grid-cols-2 gap-4">
-        <VolumeControl
-          label="Volume do pad"
-          onChange={onVolume}
-          onCommit={onVolumeCommit}
-          value={playback.volume}
-        />
+      <div
+        className={
+          onVolume
+            ? "grid min-w-[220px] flex-[2_1_220px] grid-cols-2 gap-4"
+            : "min-w-[140px] flex-[1_1_160px]"
+        }
+      >
+        {onVolume ? (
+          <VolumeControl
+            label="Volume do pad"
+            onChange={onVolume}
+            onCommit={onVolumeCommit}
+            value={playback.volume}
+          />
+        ) : null}
         <VolumeControl
           label="Volume geral"
           onChange={onMaster}
@@ -629,16 +639,16 @@ function CustomizePad({
       <DialogTrigger asChild>
         <Button
           aria-label="Personalizar pad"
-          className="h-[44px] rounded-[4px] border-[#303030] bg-transparent px-[10px] shadow-none"
+          className="border-border h-[44px] rounded-[4px] bg-transparent px-[10px] shadow-none"
           variant="outline"
         >
           <Settings2 aria-hidden="true" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto border-[#303030] bg-[#111] text-white [--background:#111] [--border:#303030] [--primary-foreground:#080808] [--primary:#fafafa] [--ring:#69aeff] sm:max-w-[460px]">
+      <DialogContent className="border-border text-foreground max-h-[90dvh] overflow-y-auto bg-[var(--surface)] sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Personalizar pad</DialogTitle>
-          <DialogDescription className="text-[#a6a6a6]">
+          <DialogDescription className="text-muted-foreground">
             Escolha o nome e o conteúdo deste pad. Alterações demonstrativas,
             sem áudio ou gravação na biblioteca.
           </DialogDescription>
@@ -647,7 +657,7 @@ function CustomizePad({
           <div className="grid gap-2">
             <Label htmlFor="preview-pad-name">Nome do pad</Label>
             <Input
-              className="border-[#444] bg-[#191919] text-[16px]"
+              className="border-border bg-[var(--surface-inset)] text-[16px]"
               id="preview-pad-name"
               onChange={changeName}
               required
@@ -664,7 +674,7 @@ function CustomizePad({
               <Button
                 aria-pressed={source === option.id}
                 className={cn(
-                  "justify-start rounded-[4px] border-[#333] bg-[#191919] text-white shadow-none",
+                  "border-border text-foreground justify-start rounded-[4px] bg-[var(--surface-inset)] shadow-none",
                   source === option.id && "border-white"
                 )}
                 key={option.id}
@@ -677,7 +687,10 @@ function CustomizePad({
               </Button>
             ))}
           </fieldset>
-          <Button className="bg-white text-black hover:bg-[#ddd]" type="submit">
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            type="submit"
+          >
             Salvar pad
           </Button>
         </form>
@@ -852,7 +865,7 @@ export function SoundboardPreview() {
   );
   return (
     <div
-      className="fixed inset-0 z-10 bg-[#080808] text-[#fafafa] [--background:#080808] [--border:#303030] [--foreground:#fafafa] [--muted:#a6a6a6] [--primary-foreground:#080808] [--primary:#fafafa] [--ring:#69aeff] [--secondary:#242424] [&_*]:[scrollbar-color:#444_#111] [&_button:focus-visible]:outline-[#69aeff]!"
+      className="bg-background text-foreground fixed inset-0 z-10"
       data-soundboard-preview
     >
       <div className="mx-auto flex h-dvh max-w-[1300px] flex-col gap-2 overflow-hidden px-[12px] pt-[calc(10px+env(safe-area-inset-top))] pb-[calc(8px+env(safe-area-inset-bottom))]">
@@ -862,7 +875,7 @@ export function SoundboardPreview() {
               <p className="text-[21px] font-bold tracking-[-0.03em]">
                 soundbard
               </p>
-              <p className="text-[11px] text-[#a6a6a6]">
+              <p className="text-muted-foreground text-[11px]">
                 Prévia visual · sem áudio
               </p>
             </div>
@@ -870,7 +883,7 @@ export function SoundboardPreview() {
               <CustomizePad onSave={savePad} pad={selected} />
               <Button
                 aria-label="Parar tudo"
-                className="h-[44px] rounded-[4px] border-[#303030] bg-transparent px-[10px] text-[#ff6666] shadow-none"
+                className="border-border text-destructive h-[44px] rounded-[4px] bg-transparent px-[10px] shadow-none"
                 onClick={stopAll}
                 variant="outline"
               >

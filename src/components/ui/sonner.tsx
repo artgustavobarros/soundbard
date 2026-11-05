@@ -17,27 +17,27 @@ export function Toaster() {
       containerAriaLabel="Notificações"
       duration={4500}
       icons={{
-        error: <CircleX className="size-4 text-[#ff9292]" />,
+        error: <CircleX className="text-destructive size-4" />,
         info: <Info className="size-4" />,
         loading: (
           <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
         ),
-        success: <CircleCheck className="size-4" />,
-        warning: <TriangleAlert className="size-4 text-[#ff8848]" />,
+        success: <CircleCheck className="text-primary size-4" />,
+        warning: <TriangleAlert className="size-4 text-(--playback)" />,
       }}
       mobileOffset={{
+        bottom: "calc(16px + env(safe-area-inset-bottom))",
         left: 16,
         right: 16,
-        top: "calc(12px + env(safe-area-inset-top))",
       }}
-      position="top-right"
-      theme="dark"
+      position="bottom-right"
+      theme="light"
       toastOptions={{
         classNames: {
           closeButton:
-            "static! order-last! ms-auto! size-11! shrink-0! transform-none! border-0! bg-transparent! text-[#a6a6a6]! hover:text-white! focus-visible:outline-2! focus-visible:outline-[#69aeff]!",
+            "static! order-last! ms-auto! size-[44px]! shrink-0! transform-none! rounded-lg! border-0! bg-transparent! text-muted-foreground! hover:bg-secondary! hover:text-foreground! focus-visible:outline-2! focus-visible:outline-ring!",
           toast:
-            "gap-3! rounded-[6px]! border-[#444]! bg-[#111]! p-3! text-[#fafafa]! shadow-none!",
+            "gap-3! rounded-xl! border-border! bg-(--surface-raised)! p-3! text-foreground! shadow-(--shadow-raised)!",
         },
         closeButtonAriaLabel: "Fechar aviso",
       }}

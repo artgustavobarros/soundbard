@@ -4,9 +4,10 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  envDir: process.env.SOUNDBARD_E2E_ENV_DIR,
   plugins: [tailwindcss(), tanstackStart({ spa: { enabled: true } }), react()],
   resolve: { tsconfigPaths: true },
   server: {
-    proxy: { "/api": "http://127.0.0.1:8000" },
+    proxy: { "/api": process.env.SOUNDBARD_API_URL ?? "http://127.0.0.1:8000" },
   },
 });

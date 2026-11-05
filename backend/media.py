@@ -88,7 +88,7 @@ def _filename(name: str) -> str:
     return f"{clean or 'Trecho'}.mp3"
 
 
-def _duration(path: Path) -> float:
+def _duration(path: Path, formats: str = AUDIO_FORMATS) -> float:
     command = [
         ffmpeg_path(),
         "-nostdin",
@@ -96,7 +96,7 @@ def _duration(path: Path) -> float:
         "-protocol_whitelist",
         "file,pipe",
         "-format_whitelist",
-        AUDIO_FORMATS,
+        formats,
         "-i",
         str(path),
         "-t",

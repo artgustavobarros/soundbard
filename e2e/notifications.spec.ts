@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
-import { wav } from "./fixtures";
+import { expect } from "@playwright/test";
+import { openDeskAction, test, wav } from "./fixtures";
 
 const APP_FONT = /DM Sans/u;
 
@@ -9,9 +9,7 @@ test("avisa que o áudio foi importado e permite fechar o toast no celular", asy
 }) => {
   await page.setViewportSize({ height: 844, width: 390 });
   await page.goto("/");
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -27,8 +25,11 @@ test("avisa que o áudio foi importado e permite fechar o toast no celular", asy
   await notification.hover();
   await expect(notification).toHaveCSS("opacity", "1");
   await expect(notification).toBeInViewport({ ratio: 1 });
-  await expect(notification).toHaveCSS("background-color", "rgb(17, 17, 17)");
-  await expect(notification).toHaveCSS("color", "rgb(250, 250, 250)");
+  await expect(notification).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)"
+  );
+  await expect(notification).toHaveCSS("color", "rgb(41, 44, 51)");
   await expect(notification).toHaveCSS("font-family", APP_FONT);
   const close = notification.getByRole("button", {
     exact: true,
@@ -59,7 +60,7 @@ test("avisa que o áudio foi importado e permite fechar o toast no celular", asy
   await close.click();
   await expect(notification).toHaveCount(0);
 
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(
     page
       .getByRole("dialog", { exact: true, name: "Biblioteca e organização" })

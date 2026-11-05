@@ -2,17 +2,21 @@
 
 Mesa de som local para campanhas de RPG. Importe seus áudios, prepare playlists e cenas, combine ambientes e dispare efeitos durante a sessão.
 
-Interface em português, feita com TanStack Start, TypeScript e shadcn/ui. Os dados e arquivos ficam no IndexedDB do navegador; a reprodução usa Web Audio API. Não há conta, serviço de armazenamento remoto ou Docker.
+Interface em português, feita com TanStack Start, TypeScript e shadcn/ui. Uma biblioteca central guarda a organização no PostgreSQL e os arquivos de áudio no servidor. O navegador mantém um cache e reproduz com Web Audio API. A execução continua local, sem contas ou hospedagem configurada.
 
 ## Executar localmente
 
-Requisitos: Node.js 24.15 ou superior, pnpm, Python 3.12 ou superior e [uv](https://docs.astral.sh/uv/getting-started/installation/). O projeto registra a versão do pnpm em `packageManager`.
+Requisitos: Node.js 24.15 ou superior, pnpm, Python 3.12 ou superior, [uv](https://docs.astral.sh/uv/getting-started/installation/) e PostgreSQL. O Compose fornecido usa Docker para iniciar PostgreSQL 18; também é possível configurar uma instância existente. O projeto registra a versão do pnpm em `packageManager`.
 
 ```bash
 pnpm install
 uv sync --extra dev
+cp .env.example .env # Somente na primeira configuração; preserve um .env existente.
+pnpm db:up
 pnpm dev
 ```
+
+O `.env` define `DATABASE_URL` e `SOUNDBARD_DATA_DIR` (padrão `.data`). O PostgreSQL do Compose usa `127.0.0.1:55439` e um volume persistente. `pnpm dev` e `pnpm start` carregam esse arquivo; mantenha credenciais e `.data` fora do Git.
 
 Abra **http://localhost:3000**. No desenvolvimento, o Vite entrega a interface nesse endereço e encaminha `/api` para o FastAPI interno em `127.0.0.1:8000`. Há uma única API de aplicação, em Python. Os processos são iniciados e encerrados juntos; não é necessário abrir a porta interna no navegador.
 
@@ -25,19 +29,19 @@ pnpm start
 
 A versão compilada é servida pelo próprio FastAPI em uma única porta, `localhost:3000`. Os scripts Node em `scripts/python.ts` apenas iniciam o Python do ambiente `.venv`; não implementam um segundo backend.
 
-Abra o mesmo endereço e aguarde **“Pronto para offline”**. A interface e os áudios já importados podem então ser reabertos sem conexão. A preparação offline é feita na versão compilada; não no servidor de desenvolvimento.
+Na versão compilada, aguarde **“Pronto para offline”** para preparar a interface. Áudios importados ou carregados neste aparelho ficam no cache, conforme o espaço disponível. Sem servidor, é possível ler a biblioteca em cache e tocar esses arquivos; gravações persistentes exigem conexão. O cache pertence ao navegador, perfil e endereço, incluindo a porta.
 
-Use o mesmo navegador, perfil e endereço, incluindo a porta. `localhost` e `127.0.0.1` são origens diferentes e não compartilham automaticamente a biblioteca.
+Dois navegadores conectados à mesma API usam a mesma biblioteca central. Recarregue para receber alterações feitas no outro aparelho; não há atualização em tempo real nem sincronização da reprodução. O servidor atual escuta em `127.0.0.1`: acesso físico por tablet exige configurar a rede e a origem permitida. Isso ainda não foi validado em aparelhos reais; não exponha essa execução sem autenticação à internet.
 
-A página principal é a mesa MIDI: pads quadrados para seus sons e playlists, controles do pad selecionado e volume geral sempre acessíveis. Importe arquivos pelo cabeçalho e acione os pads para reproduzir áudio real. Música e ambiente permitem pausar e retomar individualmente; efeitos aceitam disparos sobrepostos.
+A página principal usa a direção **Cerâmica**, escolhida na variante A de hardware: fundo `#f8f8f8`, pads quadrados em relevo, título e subtítulo dentro do pad no topo esquerdo, fader vertical e loop junto de cada som. Os controles do pad selecionado e o volume geral permanecem acessíveis. Abra **Importar áudios** pelo menu no canto esquerdo e acione os pads para reproduzir áudio real. Música e ambiente permitem pausar e retomar individualmente; efeitos aceitam disparos sobrepostos.
 
-**Cenas** abre os conjuntos de cenas, **Efeitos** inclui Ambiente e **Personalizado** reúne grupos de pads salvos neste navegador. **Biblioteca** abre a organização dos arquivos, playlists, cenas e backup. **Voltar à mesa** fecha essa área sem interromper a reprodução.
+O cabeçalho contém um hamburger à esquerda que abre um Sheet shadcn/ui com as ações e um botão “+” à direita para importar novos áudios. **Cenas** abre os conjuntos de cenas, **Efeitos** inclui Ambiente e **Personalizado** reúne grupos de pads salvos na biblioteca central. **Biblioteca** abre a organização dos arquivos, playlists, cenas e backup. **Voltar à mesa** fecha essa área sem interromper a reprodução.
 
 A rota `/previa` mantém a demonstração histórica, com dados fictícios e sem áudio. A mesa funcional fica em **http://localhost:3000/**.
 
 Três estudos de layout dos pads podem ser comparados sem alterar a mesa: [A — Nome central](http://localhost:3000/previa?estudo=pads&variant=A), [B — Ícone e acionamento](http://localhost:3000/previa?estudo=pads&variant=B) e [C — Canal e transporte](http://localhost:3000/previa?estudo=pads&variant=C). São demonstrações sem áudio, com estados em memória; as setas do seletor alternam as opções.
 
-A rodada de referências de hardware claro está em [A — Cerâmica](http://localhost:3000/previa?estudo=hardware&variant=A), [B — Rack OSC](http://localhost:3000/previa?estudo=hardware&variant=B) e [C — Estúdio](http://localhost:3000/previa?estudo=hardware&variant=C). As três opções usam pads quadrados em relevo, título abaixo, volume vertical e toggle de loop. Acionamento, volume e loop podem ser comparados entre versões, com estado somente em memória e sem áudio real.
+A rodada de referências de hardware claro está em [A — Cerâmica](http://localhost:3000/previa?estudo=hardware&variant=A), [B — Rack OSC](http://localhost:3000/previa?estudo=hardware&variant=B) e [C — Estúdio](http://localhost:3000/previa?estudo=hardware&variant=C). As opções usam pads quadrados em relevo, volume vertical e toggle de loop; Cerâmica acompanha os ajustes atuais de borda, cantos e texto interno. Acionamento, volume e loop podem ser comparados entre versões, com estado somente em memória e sem áudio real.
 
 ## Preparar uma sessão
 
@@ -53,7 +57,7 @@ A transição entre cenas leva dois segundos. Ambientes compartilhados e a mesma
 
 **Arquivo de áudio** aceita MP3, WAV e OGG, individualmente ou em lote. O seletor mostra o nome do arquivo ou a quantidade selecionada, com os nomes listados abaixo. A prévia e a forma de onda do arquivo selecionado carregam automaticamente. No lote, **Arquivo para cortar** escolhe qual áudio editar; os demais entram inteiros, com o mesmo tipo e as mesmas tags. Somente o arquivo selecionado recebe o corte e a alteração de nome. Sem corte, o arquivo local conserva seus bytes e formato originais.
 
-As tags são salvas em um catálogo local. Digite para encontrar uma tag semelhante, selecione uma sugestão ou crie uma nova. A busca ignora diferenças de maiúsculas e acentos e evita duplicatas. As sugestões também estão disponíveis ao editar os áudios existentes. Tags salvas continuam no catálogo mesmo após remover o último áudio que as utiliza; cancelar uma edição não grava as tags em rascunho.
+As tags são salvas no catálogo da biblioteca central. Digite para encontrar uma tag semelhante, selecione uma sugestão ou crie uma nova. A busca ignora diferenças de maiúsculas e acentos e evita duplicatas. As sugestões também estão disponíveis ao editar os áudios existentes. Tags salvas continuam no catálogo mesmo após remover o último áudio que as utiliza; cancelar uma edição não grava as tags em rascunho.
 
 Em **Importar áudios → Importar do YouTube**, cole o link de um vídeo. Após 600 ms sem alterações, o Soundbard consulta o vídeo e carrega automaticamente o áudio completo e a forma de onda. O progresso mostra o download e a análise; a onda aparece quando essas etapas terminam. O download precisa de internet; o arquivo já importado toca localmente como os outros pads. Alterar o link descarta a preparação anterior; fechar cancela o início pendente.
 
@@ -61,25 +65,25 @@ Enquanto prepara a prévia, o botão principal mostra **Carregando áudio…**, 
 
 A forma de onda é calculada do arquivo original pelo FFmpeg, com picos reais de amplitude por janela; silêncio permanece sem amplitude. Não é uma animação ilustrativa. Arraste os marcadores de início/fim ou edite os segundos. A barra de posição permite avançar; **Marcar início** e **Marcar fim** usam o instante atual. **Ouvir seleção** reproduz somente o intervalo escolhido.
 
-Para um áudio já importado, selecione seus controles e abra **Editar pad → Cortar áudio**. A prévia carrega automaticamente. A leitura e o corte são locais, preservando o original.
+Para um áudio já importado, use o botão **Editar** abaixo do pad e escolha **Cortar áudio**. A prévia carrega automaticamente. A leitura e o corte são locais, preservando o original.
 
 Após ouvir e conferir a seleção, use **Adicionar à biblioteca**: o Soundbard prepara o trecho escolhido e salva o arquivo em uma única ação. Alterar a seleção conserva a fonte carregada, portanto mudar o corte não exige baixar o vídeo novamente. O corte final usa o original retido, evitando usar o MP3 de prévia como uma etapa adicional de recodificação. Falhas exibem uma mensagem e permitem tentar novamente; não repetem downloads automaticamente.
 
-O FastAPI usa a biblioteca Python yt-dlp para consultar e baixar vídeos individuais; o FFmpeg corta e converte o resultado. O áudio é baixado antes do corte, portanto um intervalo curto ainda pode exigir o download do áudio completo. O yt-dlp usa o Node instalado como runtime JavaScript auxiliar quando necessário para o YouTube, sem criar outra API. O binário FFmpeg instalado no sistema tem preferência; na ausência dele, a dependência `imageio-ffmpeg` fornece um binário local. Não é necessário instalar um backend Node, Docker, ou copiar músicas do cache do Premium.
+O FastAPI usa a biblioteca Python yt-dlp para consultar e baixar vídeos individuais; o FFmpeg corta e converte o resultado. O áudio é baixado antes do corte, portanto um intervalo curto ainda pode exigir o download do áudio completo. O yt-dlp usa o Node instalado como runtime JavaScript auxiliar quando necessário para o YouTube, sem criar outra API. O binário FFmpeg instalado no sistema tem preferência; na ausência dele, a dependência `imageio-ffmpeg` fornece um binário local. O processamento de áudio não exige outro backend Node nem arquivos do cache do Premium. O Docker fornecido atende ao PostgreSQL.
 
-A preparação mostra progresso e pode ser cancelada. O resultado pronto permanece disponível até a importação confirmada, o cancelamento ou o fechamento do diálogo. Tarefas com erro têm seus arquivos temporários limpos; tarefas concluídas sem acesso expiram após uma hora. O backend não guarda a biblioteca permanente: ela continua no IndexedDB. Intervalos precisam respeitar a duração; arquivos enviados têm limite de 256 MB e vídeos precisam ser gravados, com até oito horas. Downloads têm limite de 512 MB. Playlists completas, vídeos privados e uso de contas/cookies não estão incluídos.
+A preparação mostra progresso e pode ser cancelada. O resultado pronto permanece disponível até a importação confirmada, o cancelamento ou o fechamento do diálogo. Tarefas com erro têm seus arquivos temporários limpos; tarefas concluídas sem acesso expiram após uma hora. A biblioteca permanente fica separada dessas tarefas: metadados no PostgreSQL e áudios em `SOUNDBARD_DATA_DIR/audio`. Intervalos precisam respeitar a duração; arquivos enviados têm limite de 256 MB e vídeos precisam ser gravados, com até oito horas. Downloads têm limite de 512 MB. Playlists completas, vídeos privados e uso de contas/cookies não estão incluídos.
 
 Os downloads oficiais do Premium são cifrados e não podem ser importados diretamente. Utilize conteúdo e fontes cujo download e uso sejam permitidos. [Pesquisa e referências](docs/research/youtube-downloads.md).
 
 ## Backup e recuperação
 
-O botão **Exportar backup** no cabeçalho da Biblioteca baixa um arquivo `.soundbard` com os áudios, cenas, playlists, catálogo de tags e configurações. Backups antigos continuam aceitos: as tags dos áudios formam o catálogo inicial. O botão **Restaurar backup** lê e verifica o arquivo antes de pedir confirmação.
+O botão **Exportar backup** no cabeçalho da Biblioteca baixa um arquivo `.soundbard` com os áudios, cenas, playlists, grupos de pads, catálogo de tags e configurações. Backups antigos continuam aceitos: as tags dos áudios formam o catálogo inicial. O botão **Restaurar backup** lê e verifica o arquivo antes de pedir confirmação.
 
-Restaurar **substitui** a biblioteca atual. Cancelar ou fornecer um backup inválido mantém os dados existentes. Para transferir a biblioteca, exporte no navegador original e restaure no destino.
+Restaurar **substitui** a biblioteca central após confirmação, afetando todos os clientes quando recarregarem. Cancelar ou fornecer um backup inválido mantém os dados existentes. Alterações concorrentes são rejeitadas com pedido para recarregar, em vez de sobrescrever a revisão mais recente.
 
-Os grupos personalizados de pads ficam no armazenamento local deste navegador e ainda não entram no arquivo de backup da biblioteca.
+Na primeira abertura, uma biblioteca antiga deste navegador é copiada automaticamente apenas se o servidor ainda estiver vazio e sem uso. O IndexedDB antigo (`soundbard`) e os grupos locais são preservados. Se o servidor já tiver outra biblioteca, a ação de exportar o legado permite recuperar os dados antigos sem mesclagem automática. O cache central usa um banco separado, `soundbard-server-cache`.
 
-Os arquivos locais dependem do armazenamento do navegador. Limpar os dados do site remove a biblioteca; exporte backups para conservar uma cópia recuperável. A capacidade disponível depende do navegador e do espaço do dispositivo.
+Limpar os dados do site apaga cache e eventual legado desse navegador; a biblioteca central permanece. Exporte backups completos. Para cópia direta do servidor, preserve o PostgreSQL e `SOUNDBARD_DATA_DIR` juntos: o banco sozinho não contém os arquivos de áudio.
 
 ## Verificações
 
@@ -100,7 +104,9 @@ pnpm build
 pnpm exec playwright test --config playwright.production.config.ts
 ```
 
-Os testes de navegador gerenciam o servidor na porta 3000. Encerre outro servidor nessa porta antes de executar o teste de produção.
+Os E2E reutilizam o PostgreSQL configurado em `DATABASE_URL` no ambiente ou no `.env`; inicie-o com `pnpm db:up`. Cada execução cria um schema `soundbard_e2e_<UUID>` e uma pasta de áudio temporária, removidos ao encerrar. O `search_path` usa somente esse schema. A aplicação de teste usa `127.0.0.1:3312` e a API interna `8312`; não é preciso parar o desenvolvimento em 3000. As portas podem ser alteradas com `SOUNDBARD_E2E_PORT` e `SOUNDBARD_E2E_API_PORT`.
+
+Os testes Python de persistência usam um PostgreSQL de teste descartável em Docker, com schemas próprios, ou `SOUNDBARD_TEST_DATABASE_URL` explicitamente configurada para uma instância de teste.
 
 As regras de qualidade usam Ultracite com Biome. `pnpm lint` verifica o projeto; `pnpm lint:fix` aplica as correções automáticas. Os comandos ficam em `package.json`.
 
@@ -110,6 +116,7 @@ As regras de qualidade usam Ultracite com Biome. `pnpm lint` verifica o projeto;
 - [Vocabulário do produto](GLOSSARY.md)
 - [Stack e execução local](docs/adr/0002-stack-tanstack-e-execucao-local.md)
 - [Backend FastAPI e processamento local](docs/adr/0003-fastapi-e-processamento-local.md)
+- [Biblioteca central em PostgreSQL e cache por aparelho](docs/adr/0004-biblioteca-central-postgresql.md)
 - [Pesquisa de projetos semelhantes](docs/research/github-audio-projects.md)
 - [Limites do armazenamento no navegador](docs/research/browser-audio-storage.md)
 - [Resultados e alcance da validação](docs/validation.md)

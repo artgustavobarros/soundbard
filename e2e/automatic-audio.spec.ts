@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { openDeskAction, test } from "./fixtures";
 
 const FIRST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
 const SECOND_URL = "https://youtu.be/aqz-KE-bpKQ";
@@ -89,9 +90,7 @@ test("o botão fica em loading até a onda terminar e entrega o editor focado", 
 
 async function openYouTube(page: Page) {
   await page.goto("/");
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Importar do YouTube" })
     .click();

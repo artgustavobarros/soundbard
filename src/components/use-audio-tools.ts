@@ -16,7 +16,7 @@ import {
   type YouTubeMetadata,
 } from "../lib/audio-tools";
 import type { Kind, Sound } from "../lib/model";
-import type { Repository } from "../lib/repository";
+import type { ServerRepository as Repository } from "../lib/server-repository";
 import { type AudioFile, useAudioFiles } from "./use-audio-files";
 import { useAudioPreparation } from "./use-audio-preparation";
 import { useAudioPreview } from "./use-audio-preview";

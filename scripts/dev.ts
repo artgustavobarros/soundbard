@@ -17,7 +17,7 @@ const frontend = spawn(
   [
     "node_modules/vite/bin/vite.js",
     "--host",
-    "127.0.0.1",
+    "0.0.0.0",
     "--port",
     "3000",
     "--strictPort",

@@ -38,7 +38,7 @@ function GroupPadChoice({
   );
   return (
     <Label
-      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-[4px] px-2 hover:bg-[#242424]"
+      className="hover:bg-secondary flex min-h-[44px] cursor-pointer items-center gap-3 rounded-[4px] px-2"
       htmlFor={id}
     >
       <Checkbox checked={checked} id={id} onCheckedChange={toggle} />
@@ -56,11 +56,12 @@ export function CreatePadGroupDialog({
   pads: PadChoice[];
   description?: string;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string, padIds: string[]) => boolean;
+  onSave: (name: string, padIds: string[]) => boolean | Promise<boolean>;
 }) {
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const nameId = useId();
   const changeName = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
@@ -80,8 +81,11 @@ export function CreatePadGroupDialog({
     setError("");
   }, []);
   const submit = useCallback(
-    (event: SubmitEvent<HTMLFormElement>) => {
+    async (event: SubmitEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (saving) {
+        return;
+      }
       if (!selected.size) {
         setError("Escolha ao menos um pad para o grupo.");
         return;
@@ -90,20 +94,28 @@ export function CreatePadGroupDialog({
         setError("Informe um nome para o grupo.");
         return;
       }
-      if (!onSave(name.trim(), [...selected])) {
-        setError("Não foi possível salvar neste navegador. Tente novamente.");
-        return;
+      setSaving(true);
+      setError("");
+      try {
+        if (await onSave(name.trim(), [...selected])) {
+          onOpenChange(false);
+        } else {
+          setError("Não foi possível salvar o grupo. Tente novamente.");
+        }
+      } catch {
+        setError("Não foi possível salvar o grupo. Tente novamente.");
+      } finally {
+        setSaving(false);
       }
-      onOpenChange(false);
     },
-    [name, onOpenChange, onSave, selected]
+    [name, onOpenChange, onSave, selected, saving]
   );
   return (
     <Dialog onOpenChange={onOpenChange} open>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto border-[#303030] bg-[#111] text-white [--background:#111] [--border:#303030] [--foreground:#fafafa] [--muted:#a6a6a6] [--primary-foreground:#080808] [--primary:#fafafa] [--ring:#69aeff] [--secondary:#242424] sm:max-w-[460px]">
+      <DialogContent className="border-border text-foreground max-h-[90dvh] overflow-y-auto bg-(--surface-raised) sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Criar grupo de pads</DialogTitle>
-          <DialogDescription className="text-[#a6a6a6]">
+          <DialogDescription className="text-muted-foreground">
             {description}
           </DialogDescription>
         </DialogHeader>
@@ -111,7 +123,8 @@ export function CreatePadGroupDialog({
           <div className="grid gap-2">
             <Label htmlFor={nameId}>Nome do grupo</Label>
             <Input
-              className="border-[#444] bg-[#191919] text-[16px]"
+              className="border-border bg-(--surface-raised) text-[16px]"
+              disabled={saving}
               id={nameId}
               maxLength={80}
               onChange={changeName}
@@ -119,9 +132,9 @@ export function CreatePadGroupDialog({
               value={name}
             />
           </div>
-          <fieldset className="min-w-0">
+          <fieldset className="min-w-0" disabled={saving}>
             <legend className="mb-2 text-[13px]">Escolha os pads</legend>
-            <div className="max-h-[40dvh] overflow-y-auto rounded-[4px] border border-[#303030] p-1">
+            <div className="border-border max-h-[40dvh] overflow-y-auto rounded-[4px] border p-1">
               {pads.map((pad) => (
                 <GroupPadChoice
                   checked={selected.has(pad.id)}
@@ -132,16 +145,20 @@ export function CreatePadGroupDialog({
               ))}
             </div>
           </fieldset>
-          <p className="text-[12px] text-[#a6a6a6]">
+          <p className="text-muted-foreground text-[12px]">
             {selected.size} pads selecionados
           </p>
           {Boolean(error) && (
-            <p className="text-[12px] text-[#ff8888]" role="alert">
+            <p className="text-destructive text-[12px]" role="alert">
               {error}
             </p>
           )}
-          <Button className="bg-white text-black hover:bg-[#ddd]" type="submit">
-            Salvar grupo
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={saving}
+            type="submit"
+          >
+            {saving ? "Salvando grupo…" : "Salvar grupo"}
           </Button>
         </form>
       </DialogContent>

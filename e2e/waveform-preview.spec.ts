@@ -1,15 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
-import { segmentedWav } from "./fixtures";
+import { expect, type Page } from "@playwright/test";
+import { openDeskAction, segmentedWav, test } from "./fixtures";
 
 const ORIGINAL_PAD = /Original com dinâmica/u;
 const WAVEFORM_RESPONSE = /\/api\/audio-jobs\/[^/]+\/waveform$/u;
 
 async function openOriginal(page: Page) {
   await page.goto("/");
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -23,10 +21,9 @@ async function openOriginal(page: Page) {
   await page
     .getByRole("button", {
       exact: true,
-      name: "Controlar Original com dinâmica",
+      name: "Editar Original com dinâmica",
     })
     .click();
-  await page.getByRole("button", { exact: true, name: "Editar pad" }).click();
   const response = page.waitForResponse(WAVEFORM_RESPONSE);
   await page.getByRole("button", { exact: true, name: "Cortar áudio" }).click();
   return response;
@@ -38,6 +35,52 @@ test.beforeEach(({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(await page.pageErrors()).toEqual([]);
+});
+
+test("os limites do corte são linhas finas e continuam ajustáveis", async ({
+  page,
+}) => {
+  await openOriginal(page);
+  await page.getByLabel("Início (segundos)").fill("1");
+  await page.getByLabel("Fim (segundos)").fill("7");
+  const checkMarker = async (name: string) => {
+    const marker = page.getByRole("slider", { exact: true, name });
+    await expect(marker).toHaveCSS("width", "1px");
+    await expect(marker).toHaveCSS("border-left-width", "0px");
+    const hitWidth = await marker.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element, "::before").width)
+    );
+    expect(hitWidth).toBeGreaterThanOrEqual(44);
+    const before = Number(await marker.getAttribute("aria-valuenow"));
+    await marker.focus();
+    await marker.press("ArrowRight");
+    await expect(marker).toHaveAttribute(
+      "aria-valuenow",
+      String(before + 0.01)
+    );
+    const bounds = await marker.boundingBox();
+    if (!bounds) {
+      throw new Error("Marcador sem posição visível");
+    }
+    await page.mouse.move(bounds.x + 10, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 30, bounds.y + bounds.height / 2, {
+      steps: 4,
+    });
+    await page.mouse.up();
+    expect(Number(await marker.getAttribute("aria-valuenow"))).toBeGreaterThan(
+      before + 0.01
+    );
+  };
+  await checkMarker("Início do corte");
+  await checkMarker("Fim do corte");
+  await page.getByLabel("Nome do áudio").focus();
+  await page.screenshot({ path: ".qa/cut-lines-desktop.png" });
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page
+    .getByRole("slider", { exact: true, name: "Início do corte" })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({ path: ".qa/cut-lines-mobile.png" });
 });
 
 test("a prévia desenha a dinâmica real do arquivo e permite ouvir e marcar o corte", async ({

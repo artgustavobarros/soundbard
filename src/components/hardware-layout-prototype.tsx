@@ -11,6 +11,7 @@ import {
 } from "./hardware-prototype-model";
 import { HardwareRackLayout } from "./hardware-prototype-rack";
 import { Button } from "./ui/button";
+import { WorkspaceMenu } from "./workspace-menu";
 
 const variants: HardwareVariant[] = ["A", "B", "C"];
 const names = { A: "Cerâmica", B: "Rack OSC", C: "Estúdio" };
@@ -25,7 +26,7 @@ const descriptions = {
   C: "Um canal completo por som, com volume abaixo do pad.",
 };
 const buttonClass =
-  "h-[44px] touch-manipulation rounded-md bg-transparent px-3 text-[#555963] shadow-none hover:bg-white/60 hover:text-[#3c324e] focus-visible:outline-[#75648f]! focus-visible:ring-0";
+  "h-[44px] touch-manipulation rounded-md bg-transparent px-3 text-[#555963] shadow-none hover:bg-white/60 hover:text-[#151517] focus-visible:outline-[#151517]! focus-visible:ring-0";
 const sections = ["Cenas", "Efeitos", "Personalizado"] as const;
 const sectionTitles = {
   Cenas: "Taverna",
@@ -156,17 +157,16 @@ export function HardwareLayoutPrototype({
     (id: string) => changeSound(id, { status: "idle" }),
     [changeSound]
   );
-  const stopAll = useCallback(
-    () =>
-      setSounds((items) =>
-        items.map((sound) => ({ ...sound, status: "idle" }))
-      ),
-    []
-  );
+  const stopAll = useCallback(() => {
+    setMenuOpen(false);
+    setSounds((items) => items.map((sound) => ({ ...sound, status: "idle" })));
+  }, []);
+  const [menuOpen, setMenuOpen] = useState(false);
   const changeSection = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     const label = event.currentTarget.dataset.section;
     if (label === "Cenas" || label === "Efeitos" || label === "Personalizado") {
       setSection(label);
+      setMenuOpen(false);
     }
   }, []);
   const visibleSounds = sounds.filter(
@@ -180,43 +180,20 @@ export function HardwareLayoutPrototype({
   const playing = sounds.filter((sound) => sound.status === "playing").length;
   return (
     <main
-      className="fixed inset-0 z-10 overflow-hidden bg-[#eceef1] text-[#292c33] [--background:#f1f2f5] [--border:#c8cbd2] [--foreground:#292c33] [--muted:#666a73] [--primary-foreground:#fff] [--primary:#75648f] [--ring:#75648f] [--secondary:#e1e3e8]"
+      className="fixed inset-0 z-10 overflow-hidden bg-[#f8f8f8] text-[#292c33] [--background:#f8f8f8] [--border:#c8cbd2] [--foreground:#292c33] [--muted:#666a73] [--primary-foreground:#fff] [--primary:#151517] [--ring:#151517] [--secondary:#e1e3e8]"
       data-hardware-prototype={variant}
       style={{ colorScheme: "light" }}
     >
       <div className="mx-auto flex h-dvh max-w-[1280px] flex-col gap-2 overflow-hidden px-4 pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(72px+env(safe-area-inset-bottom))] md:gap-5 md:px-8 md:pt-7">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-1">
-          <div className="flex min-w-0 flex-[1_1_180px] items-center justify-between gap-4">
-            <div>
-              <p className="text-[23px] font-semibold tracking-[-0.03em]">
-                soundbard<span className="text-[#7b6a97]">.</span>
-              </p>
-              <p className="text-[10px] text-[#626773]">
-                Prévia sem áudio · {playing} em reprodução
-              </p>
-            </div>
-            <Button
-              aria-label="Parar todos os pads demonstrativos"
-              className={cn(buttonClass, "w-[44px] p-0 text-[#874b45]")}
-              onClick={stopAll}
-              size="icon"
-              variant="ghost"
-            >
-              <Square aria-hidden="true" className="size-[15px]" />
-            </Button>
-          </div>
-          <nav
-            aria-label="Conjuntos de pads"
-            className="flex items-center gap-1"
-          >
+        <WorkspaceMenu onOpenChange={setMenuOpen} open={menuOpen}>
+          <nav aria-label="Conjuntos de pads" className="grid gap-2">
             {sections.map((label) => (
               <Button
                 aria-pressed={section === label}
                 className={cn(
                   buttonClass,
-                  "px-2.5 text-[12px]",
-                  section === label &&
-                    "bg-white/80 text-[#393042] shadow-[0_2px_5px_#61657412]"
+                  "justify-start",
+                  section === label && "bg-white/80 text-[#151517]"
                 )}
                 data-section={label}
                 key={label}
@@ -227,7 +204,18 @@ export function HardwareLayoutPrototype({
               </Button>
             ))}
           </nav>
-        </header>
+          <Button
+            className="text-destructive justify-start"
+            onClick={stopAll}
+            variant="ghost"
+          >
+            <Square aria-hidden="true" className="size-4" />
+            Parar todos os pads demonstrativos
+          </Button>
+          <p className="text-muted-foreground mt-auto text-[12px]">
+            Prévia sem áudio · {playing} em reprodução
+          </p>
+        </WorkspaceMenu>
         <section
           aria-label="Mesa demonstrativa"
           className="flex min-h-0 flex-1 flex-col gap-2 md:gap-5"

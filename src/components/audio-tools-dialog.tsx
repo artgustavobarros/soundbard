@@ -1,6 +1,7 @@
 import { LoaderCircle, Pause, Play, Upload } from "lucide-react";
 import type { ChangeEvent, Ref } from "react";
 import { useCallback, useEffect, useRef } from "react";
+import { restoreWorkspaceFocus } from "../lib/dialog-focus";
 import { duration as formatDuration } from "../lib/utils";
 import { AudioWaveformEditor } from "./audio-waveform-editor";
 import { TagsInput } from "./tags-input";
@@ -18,9 +19,9 @@ import { type AudioToolsProps, useAudioTools } from "./use-audio-tools";
 
 type ToolsState = ReturnType<typeof useAudioTools>;
 const fieldClass =
-  "min-h-[44px] w-full min-w-0 border-[#444] bg-[#191919] text-[16px] text-white";
+  "min-h-[44px] w-full min-w-0 border-border bg-(--surface-raised) text-[16px] text-foreground";
 const secondaryButton =
-  "min-h-[44px] border-[#444] bg-transparent text-white hover:border-[#69aeff] hover:bg-[#242424]";
+  "min-h-[44px] border-border bg-transparent text-foreground hover:border-ring hover:bg-secondary";
 
 function YouTubeSource({ tools }: { tools: ToolsState }) {
   const { url, setUrl, phase } = tools;
@@ -96,7 +97,7 @@ function FileSource({ tools }: { tools: ToolsState }) {
       {files.length > 0 && (
         <ul
           aria-label="Nomes dos arquivos"
-          className="grid max-h-28 gap-1 overflow-y-auto text-[13px] text-[#b8b8b8]"
+          className="text-muted-foreground grid max-h-28 gap-1 overflow-y-auto text-[13px]"
         >
           {files.map((entry) => (
             <li className="break-words" key={entry.id}>
@@ -123,14 +124,14 @@ function FileSource({ tools }: { tools: ToolsState }) {
               ))}
             </select>
           </div>
-          <p className="text-[12px] text-[#b8b8b8]">
+          <p className="text-muted-foreground text-[12px]">
             O arquivo selecionado pode ser cortado; os demais serão importados
             inteiros.
           </p>
         </>
       )}
       {fileErrors.length > 0 && (
-        <div className="grid gap-1 text-[13px] text-[#ff9292]" role="alert">
+        <div className="text-destructive grid gap-1 text-[13px]" role="alert">
           {fileErrors.map((message) => (
             <p className="break-words" key={message}>
               {message}
@@ -183,7 +184,7 @@ function AudioDetails({ tools }: { tools: ToolsState }) {
   );
   return (
     <fieldset className="grid min-w-0 gap-3">
-      <legend className="mb-3 max-w-full text-[13px] break-words text-[#b8b8b8]">
+      <legend className="text-muted-foreground mb-3 max-w-full text-[13px] break-words">
         {sound?.name ?? metadata?.title} · {formatDuration(duration)}
       </legend>
       <div className="grid gap-2">
@@ -253,7 +254,7 @@ function AudioDetails({ tools }: { tools: ToolsState }) {
           />
         </div>
       </div>
-      <p className="text-[12px] text-[#b8b8b8]" id="audio-range-help">
+      <p className="text-muted-foreground text-[12px]" id="audio-range-help">
         O trecho será salvo em MP3. O áudio original será preservado.
       </p>
     </fieldset>
@@ -270,7 +271,7 @@ function AudioPreview({ tools }: { tools: ToolsState }) {
   return (
     <section
       aria-label={ready ? "Áudio preparado" : "Prévia do trecho"}
-      className="flex flex-wrap items-center justify-between gap-2 border-y border-[#303030] py-3"
+      className="border-border flex flex-wrap items-center justify-between gap-2 border-y py-3"
     >
       <Button
         className={secondaryButton}
@@ -286,7 +287,7 @@ function AudioPreview({ tools }: { tools: ToolsState }) {
       </Button>
       <output
         aria-label="Posição da prévia"
-        className="text-[12px] text-[#b8b8b8] tabular-nums"
+        className="text-muted-foreground text-[12px] tabular-nums"
       >
         {formatDuration(time)}
         {ready && job?.duration ? ` / ${formatDuration(job.duration)}` : ""}
@@ -322,7 +323,7 @@ function JobProgress({ tools }: { tools: ToolsState }) {
       </div>
       <progress
         aria-label="Progresso do áudio"
-        className="h-2 w-full appearance-none overflow-hidden rounded-full bg-[#303030] accent-white [&::-moz-progress-bar]:bg-white [&::-webkit-progress-bar]:bg-[#303030] [&::-webkit-progress-value]:bg-white"
+        className="bg-secondary accent-primary [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:bg-secondary [&::-webkit-progress-value]:bg-primary h-2 w-full appearance-none overflow-hidden rounded-full shadow-(--shadow-inset)"
         max={100}
         value={progress}
       />
@@ -361,7 +362,7 @@ function PrepareAudio({
           waveform={waveform}
         />
       ) : (
-        <p className="text-[12px] text-[#b8b8b8]">
+        <p className="text-muted-foreground text-[12px]">
           A forma de onda real aparecerá assim que a análise terminar. Você
           poderá ouvir e marcar o corte antes de adicionar à biblioteca.
         </p>
@@ -369,7 +370,7 @@ function PrepareAudio({
       <AudioPreview tools={tools} />
       <AudioDetails tools={tools} />
       {rangeError !== null && (
-        <p className="text-[13px] text-[#ff9292]" role="alert">
+        <p className="text-destructive text-[13px]" role="alert">
           {rangeError}
         </p>
       )}
@@ -436,7 +437,8 @@ export function AudioToolsDialog(props: AudioToolsProps) {
   return (
     <Dialog onOpenChange={changeOpen} open>
       <DialogContent
-        className="flex! max-h-[92dvh] flex-col gap-0 overflow-hidden border-[#303030] bg-[#111] p-0 text-white [--background:#111] [--border:#303030] [--foreground:#fafafa] [--muted:#a6a6a6] [--primary-foreground:#080808] [--primary:#fafafa] [--ring:#69aeff] [--secondary:#242424] sm:max-w-[500px]"
+        className="border-border text-foreground flex! max-h-[92dvh] flex-col gap-0 overflow-hidden bg-(--surface-raised) p-0 sm:max-w-[500px]"
+        onCloseAutoFocus={restoreWorkspaceFocus}
         showCloseButton={false}
       >
         <section
@@ -445,7 +447,7 @@ export function AudioToolsDialog(props: AudioToolsProps) {
         >
           <DialogHeader className="text-left">
             <DialogTitle>{dialogTitle(Boolean(sound), fileMode)}</DialogTitle>
-            <DialogDescription className="text-[#b8b8b8]">
+            <DialogDescription className="text-muted-foreground">
               {dialogDescription(Boolean(sound), fileMode)}
             </DialogDescription>
           </DialogHeader>
@@ -456,7 +458,10 @@ export function AudioToolsDialog(props: AudioToolsProps) {
               <YouTubeSource tools={tools} />
             ))}
           {error.length > 0 && (
-            <p className="text-[13px] break-words text-[#ff9292]" role="alert">
+            <p
+              className="text-destructive text-[13px] break-words"
+              role="alert"
+            >
               {error}
             </p>
           )}
@@ -464,7 +469,7 @@ export function AudioToolsDialog(props: AudioToolsProps) {
             <PrepareAudio editorRef={editorRef} tools={tools} />
           )}
         </section>
-        <div className="grid shrink-0 gap-3 border-t border-[#303030] bg-[#111] p-4">
+        <div className="border-border grid shrink-0 gap-3 border-t bg-(--surface-raised) p-4">
           <JobProgress tools={tools} />
           <div className="flex flex-wrap justify-end gap-2">
             {(loading || active || phase === "creating") && (
@@ -511,7 +516,7 @@ export function AudioToolsDialog(props: AudioToolsProps) {
             </Button>
             <Button
               aria-busy={loading || saving}
-              className="min-h-[44px] bg-white text-black hover:bg-[#ddd]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px]"
               disabled={!canAdd}
               onClick={add}
               type="button"

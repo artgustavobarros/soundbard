@@ -1,11 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
-import { wav } from "./fixtures";
+import { expect, type Page } from "@playwright/test";
+import { openDeskAction, test, wav } from "./fixtures";
 
 async function chooseFile(page: Page) {
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -13,9 +11,7 @@ async function chooseFile(page: Page) {
 
 test("a primeira etapa oferece apenas YouTube ou arquivo", async ({ page }) => {
   await page.goto("/");
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   const dialog = page.getByRole("dialog", {
     exact: true,
     name: "Importar áudios",
@@ -62,7 +58,7 @@ test("corta o arquivo enviado, salva nome e tags e sugere tags depois de recarre
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(
-    page.getByRole("button", { exact: true, name: "Controlar Chuva recortada" })
+    page.getByRole("button", { exact: true, name: "Editar Chuva recortada" })
   ).toBeVisible();
   await page.reload();
   await chooseFile(page);
@@ -110,7 +106,7 @@ test("corta o arquivo enviado, salva nome e tags e sugere tags depois de recarre
     .getByRole("button", { exact: true, name: "Adicionar à biblioteca" })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(
     page.getByRole("dialog").getByText("Chuva", { exact: true })
   ).toBeVisible();
@@ -150,7 +146,7 @@ test("o lote permite cortar um arquivo e conserva os demais inteiros", async ({
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.reload();
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   const manager = page.getByRole("dialog", {
     exact: true,
     name: "Biblioteca e organização",

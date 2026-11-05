@@ -37,11 +37,11 @@ interface PreviewNavigationProps {
 }
 
 const triggerClass =
-  "h-[44px] min-w-0 gap-1 rounded-[4px] border-[#303030] bg-transparent px-2 text-white shadow-none hover:border-[#69aeff] hover:bg-[#191919] focus-visible:outline-[#69aeff]!";
+  "h-[44px] min-w-0 gap-1 rounded-md border-transparent bg-transparent px-2.5 text-muted-foreground shadow-none hover:bg-white/60 hover:text-foreground";
 const menuClass =
-  "w-[220px] max-w-[calc(100vw-24px)] rounded-[5px] border-[#303030] bg-[#111] text-white [--background:#111] [--border:#303030] [--foreground:#fafafa] [--muted:#a6a6a6] [--primary:#fafafa] [--ring:#69aeff] [--secondary:#242424]";
+  "w-[220px] max-w-[calc(100vw-24px)] rounded-lg border-border bg-[var(--surface-raised)] text-foreground shadow-[var(--shadow-raised)]";
 const itemClass =
-  "min-h-[44px] cursor-pointer text-[13px] focus:bg-[#1b2836] focus:text-white data-[highlighted]:bg-[#1b2836] data-[highlighted]:text-white";
+  "min-h-[44px] cursor-pointer text-[13px] focus:bg-[var(--selected)] focus:text-[var(--selected-foreground)] data-[highlighted]:bg-[var(--selected)] data-[highlighted]:text-[var(--selected-foreground)]";
 const categories = [
   { icon: Users, label: "Personagens", type: "characters" as const },
   { icon: MapPin, label: "Locais", type: "locations" as const },
@@ -64,7 +64,10 @@ function NavigationTrigger({
     <DropdownMenuTrigger asChild>
       <Button
         aria-current={active ? "true" : undefined}
-        className={cn(triggerClass, active && "border-[#aaa] bg-[#202020]")}
+        className={cn(
+          triggerClass,
+          active && "text-foreground bg-white/80 shadow-sm"
+        )}
         variant="outline"
       >
         <span className="text-[12px]">{label}</span>
@@ -95,12 +98,12 @@ function SceneCategoryItem({
     >
       <category.icon
         aria-hidden="true"
-        className="size-[16px] text-[#a6a6a6]"
+        className="text-muted-foreground size-[16px]"
       />
       {category.label}
       <ChevronRight
         aria-hidden="true"
-        className="ml-auto size-[16px] text-[#a6a6a6]"
+        className="text-muted-foreground ml-auto size-[16px]"
       />
     </DropdownMenuItem>
   );
@@ -173,7 +176,7 @@ export function PreviewNavigation({
                 <ArrowLeft aria-hidden="true" className="size-[16px]" />
                 Voltar
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-[#303030]" />
+              <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuRadioGroup
                 aria-label={categoryName}
                 onValueChange={select}
@@ -254,7 +257,7 @@ export function PreviewNavigation({
               Nenhum grupo salvo
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator className="bg-[#303030]" />
+          <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem className={itemClass} onSelect={onCreateGroup}>
             <Plus aria-hidden="true" className="size-[16px]" />
             Criar grupo de pads

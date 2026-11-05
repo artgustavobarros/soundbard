@@ -1,5 +1,6 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { inOrder } from "../src/lib/utils";
+import { test } from "./fixtures";
 
 const PLAYLIST_PAD_NAME = /\bCaminhada à noite\b/u;
 const FIRE_PAD_NAME = /\bLareira\b/u;

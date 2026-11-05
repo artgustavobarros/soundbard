@@ -271,3 +271,58 @@ A conferência final cobriu **30 combinações de variante e viewport**: as nove
 Nos nove cenários principais, axe não encontrou violações críticas ou sérias. Passaram acionamento, toggle, alteração de volume por ArrowUp sem trocar a variante, preservação de estado entre variantes e filtros de conjuntos. Ultracite verificou 90 arquivos, TypeScript e build passaram, assim como os 54 testes Vitest e as seis regressões da prévia histórica. Os dois testes offline da versão compilada também passaram. React Doctor registrou 65/100 e os mesmos 19 avisos existentes, sem erros ou novos diagnósticos nos estudos; o detector de design retornou lista vazia. Não houve mudanças no backend ou no formato da biblioteca.
 
 Evidências: `.qa/hardware-{A,B,C}-{desktop,mobile,short}.png`, `.qa/hardware-audit.json`, `.qa/hardware-fluid-audit.json`, `.qa/hardware-fluid-{A,B,C}-568x320.png`, `.qa/hardware-mixer-position.mjs`, `.qa/react-doctor-hardware-final.txt` e `.qa/design-hardware.json`. A validação usa Chromium e dimensões emuladas; aparelho físico, Firefox, Safari e saída física de áudio continuam fora do alcance. Nenhuma proposta foi escolhida ou aplicada à mesa real.
+
+## Aplicação da direção Cerâmica à interface funcional
+
+A variante A de hardware foi escolhida como referência para a mesa principal e as áreas de organização. A interface usa fundo claro, texto grafite, lavanda para foco e seleção e indicadores discretos de reprodução. Biblioteca, mixagem, playlists, cenas, importação, corte, campos, menus, tags e Sonner compartilham os tokens globais. Os dados da biblioteca e o motor de áudio continuam locais.
+
+A mesa funcional reutiliza os pads esculpidos, faders verticais e toggles da referência. Volume e loop dos sons são operados junto de cada pad, sem exigir a troca do pad selecionado, e persistem após recarregar. A faixa de transporte, edição e volume geral permanece disponível. A prévia A continua acessível para comparação; os demais estudos não substituem a direção aprovada.
+
+Validação: Ultracite, Ruff, TypeScript, 54 testes TypeScript, 55 testes Python e build com preparação offline passaram. Foram verificados os 34 cenários de navegador; após atualizar as expectativas da nova paleta e a espera pelo encerramento dos avisos, os seis cenários de mesa e notificações foram executados novamente e passaram. O novo cenário de faders e loop inclui persistência após recarregar e operação em 568 × 320. Os fluxos existentes verificam reprodução simultânea, playlists, cenas, importação, corte, backup e acessibilidade.
+
+A inspeção visual usou larguras de 1440, 768 e 390 px, com uma biblioteca de seis tons sintéticos em contexto de teste separado. Não houve rolagem horizontal da página nem erros de execução. O detector Impeccable não apontou ocorrências e o React Doctor não encontrou novos problemas. A inspeção mecânica registrou zero falhas; o espaço da biblioteca vazia é intencional e o pequeno desvio óptico do logotipo junto à margem não altera o alinhamento dos controles. As capturas e relatórios de teste ficam nas pastas locais ignoradas pelo Git. Não foram usados áudios de campanha do usuário nem verificado um tablet físico.
+
+## Biblioteca central, menu e isolamento E2E — 4 de novembro de 2026
+
+A biblioteca funcional passou a usar PostgreSQL para o manifesto e uma pasta persistente para os áudios. Dois contextos independentes do Chromium confirmaram importação, leitura e reprodução do mesmo áudio, além de grupos compartilhados. O legado do navegador continua preservado e pode ser exportado sem substituir a biblioteca central. Os testes de repositório cobrem migração para servidor vazio, conflitos de revisão, integridade dos arquivos e falha explícita de gravação offline.
+
+Os E2E reutilizam o PostgreSQL configurado, criando um schema UUID e uma pasta de áudio por execução. A aplicação usa somente esse schema no `search_path`, sem fallback para `public`. Os testes observaram primeiro a falha do isolamento antigo e confirmaram a correção: tabelas do schema público não são resolvidas pela conexão isolada. A limpeza aceita somente nomes temporários válidos e preserva uma tabela de controle fora do schema removido.
+
+`pnpm check` passou: Ultracite em 104 arquivos, Ruff em 14 arquivos Python, TypeScript, **71 testes Vitest**, **77 testes Python** e build com preparação offline. A suíte regular passou nos **44 E2E**; a versão compilada passou nos **dois testes offline**, incluindo fechar e reabrir o perfil do navegador sem conexão. A ausência do indicador de preparação offline foi reproduzida pelos testes e corrigida antes da aprovação final.
+
+Os cenários de interface verificam menu com foco por teclado, barras do hamburger em 100/80/60%, borda dos pads, transição interna de 2 px, cantos de 12 px e título/subtítulo em Roboto no topo esquerdo. A inspeção visual da variante Cerâmica no Chrome não encontrou erros ou avisos no console. O React Doctor no escopo alterado retornou diagnóstico vazio e nota 76/100; sua varredura ampla inclui dependências da `.venv` e avisos preexistentes, portanto essa nota não representa aprovação global da base.
+
+O compartilhamento foi validado entre navegadores locais; tablet físico e acesso pela rede ainda não foram validados. Alterações de outro aparelho exigem recarregar. O modo offline reproduz arquivos já disponíveis no cache do aparelho e não confirma gravações sem o servidor.
+
+## Sheet, superfície dos pads, footer e edição direta — 4 de novembro de 2026
+
+O Sheet já estava instalado, mas suas classes de animação não tinham o CSS correspondente. Os testes reproduziram `animation-name: none` e passaram após importar `tw-animate-css`; entrada e saída usam os tempos existentes de 500 ms e 300 ms, com movimento reduzido respeitado. As barras do hamburger tinham a mesma espessura fracionada de 1,75 px. Agora usam 2 px fixos, intervalo de 6 px e larguras de 100%, 80% e 60%. A mesa real ganhou uma ação somente com ícone de adicionar músicas à direita, validada em 320 px e 1440 px; a prévia não oferece uma ação de importação fictícia.
+
+Os quatro gradientes retos do pad foram substituídos por uma sombra interna de 2 px que acompanha os cantos de 12 px. A inspeção dos pixels confirma sombreamento no canto e face uniforme além da borda, inclusive com o pad acionado. O footer e seus botões reutilizam a superfície clara, borda grafite, sombras e tipografia do pad. O volume individual aparece somente no fader lateral; trilho e marca do fader usam `#151517`. O botão abaixo de cada pad abre diretamente a edição do item clicado. A regressão seleciona outro pad antes de editar e verifica o som correto; o fluxo de corte existente continua preservando o original e salvando o trecho.
+
+A validação revelou duas esperas antigas nos testes: importação em lote aguardava um seletor de editor que já não correspondia ao diálogo de áudio, e ações do menu podiam encontrar botões de um diálogo que ainda estava fechando. As esperas agora acompanham a região real de configuração de áudio e a desmontagem dos diálogos fechados, sem sleeps fixos nem redução de critérios. A inspeção visual do pad, fader e footer usou somente dados sintéticos. Capturas permanecem em `.qa`, fora do Git.
+
+## Drag-and-drop Arc UI e padronização visual no preto `#151517` — 4 de novembro de 2026
+
+O container de carrossel (Embla) foi removido da mesa funcional em `CeramicPadBoard`, dando lugar a uma grade direta em CSS Grid com fluxo de colunas e dimensionamento adaptativo contido no viewport. A reorganização de pads por arraste passou a exibir os efeitos visuais do Arc UI (`uiarc.dev`):
+- O card em arraste adquire leve rotação (`rotate(2.5deg)`) e escala (`scale(1.03)`).
+- Sombra flutuante profunda (`shadow-2xl`) e atributo semântico de elevação `data-lifted="true"`.
+- Borda primária e anel discreto de realce no card levantado, além de uma borda primária sutil revelada ao passar o mouse.
+- Suporte a teclado mantido com restauração de foco e movimento reduzido respeitado.
+
+O arraste começa somente pela alça dedicada. Um `DragOverlay` em portal mantém o módulo visível enquanto o ponteiro ultrapassa a grade. A posição original e o destino recebem marcadores pontilhados; a ordem otimista permanece estável durante a confirmação do servidor, evitando o retorno visual dos outros pads ao soltar. Falha de persistência restaura a ordem anterior.
+
+No editor de áudio, cada limite de corte agora aparece como uma linha de 1 px. A área interativa invisível continua com 44 px para toque e teclado. Sliders, botão de edição e filtros seguem o mesmo mínimo de alvo sem aumentar desnecessariamente o elemento visual. As classes locais foram reduzidas a variantes explícitas e regras compartilhadas na camada de componentes, evitando repetição de utilitários Tailwind.
+
+A paleta de cores foi unificada para substituir todos os tons residuais de roxo/lavanda (`#75648f`, `#655586`, `#3c324e`, `#8e80ad`, `#777083`, `#e9e4ef`, `#514263`) pelo preto idêntico à borda dos pads (`#151517`):
+- Tokens globais: `--primary: #151517`, `--ring: #151517`, `--selected: #e4e7ec` e `--selected-foreground: #151517`.
+- Contornos de foco, alça do fader, switches de loop acionados e estados de hover dos protótipos de controle atualizados para `#151517`.
+- `DESIGN.md` alinhado para referenciar a cor das bordas como indicador primário.
+
+### Diferenças conhecidas, anteriores a esta rodada
+
+A revisão comparou a implementação com as decisões históricas e preservou três comportamentos já cobertos por testes existentes: um segundo clique interrompe e um clique posterior reinicia a reprodução; o Sheet do menu bloqueia a mesa enquanto aberto; o indicador ativo usa verde esmeralda com brilho. Esses comportamentos divergem, respectivamente, das decisões antigas de sobreposição/pausa, menu não modal e indicador laranja sem brilho. Esta rodada não altera essas escolhas sem uma nova decisão de produto.
+
+### Validação final
+
+`pnpm check` passou com Ultracite em 109 arquivos, Ruff em 14 arquivos Python, TypeScript, 88 testes Vitest, 88 testes Python e build com preparação offline. A execução limpa da suíte regular passou nos 70 E2E; a versão compilada passou nos dois testes offline. React Doctor manteve 77/100 e não apontou problemas no escopo alterado. A revisão também fechou uma origem de API permissiva demais e garantiu alvos de pelo menos 44 px nos sliders, filtros e botões de edição.

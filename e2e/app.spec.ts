@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
-import { wav } from "./fixtures";
+import { expect, type Page } from "@playwright/test";
+import { openDeskAction, test, wav } from "./fixtures";
 
 const BACKUP_ERROR = /Backup|backup/u;
 const FILE_EXTENSION = /\.[^.]+$/u;
@@ -29,7 +29,7 @@ function manager(page: Page) {
 }
 
 async function openLibrary(page: Page) {
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(manager(page)).toBeVisible();
 }
 
@@ -38,18 +38,21 @@ async function importFiles(
   kind: string,
   files: ReturnType<typeof wav>[]
 ) {
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
   await page.getByLabel("Arquivos de áudio").setInputFiles(files);
   await page.getByLabel("Tipo do áudio").selectOption(kind);
+  const audioEditor = page.getByRole("region", {
+    exact: true,
+    name: "Configuração do áudio",
+  });
+  await expect(audioEditor).toBeVisible();
   await page
     .getByRole("button", { exact: true, name: "Adicionar à biblioteca" })
     .click();
-  await expect(page.locator(".editor[role=dialog]")).not.toBeVisible({
+  await expect(audioEditor).not.toBeVisible({
     timeout: 30_000,
   });
   await openLibrary(page);
@@ -61,9 +64,7 @@ async function createPlaylist(
   repeat = "off"
 ) {
   await page.getByRole("button", { exact: true, name: "Playlists" }).click();
-  await page
-    .getByRole("button", { exact: true, name: "Nova playlist" })
-    .click();
+  await openDeskAction(page, "Nova playlist");
   await page.getByLabel("Nome da playlist").fill(name);
   await inOrder(sounds, (sound) =>
     page.getByRole("checkbox", { exact: true, name: sound }).check()
@@ -110,7 +111,7 @@ test("uma música participa de duas playlists e a remoção de uma não altera a
   await expect(
     page.getByRole("button", { exact: true, name: "Tocar Viagem" })
   ).toBeVisible();
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(
     page.getByRole("button", { exact: true, name: "Tocar Viagem" })
   ).toBeVisible();
@@ -202,7 +203,7 @@ test("preserva áudio compartilhado, sobrepõe efeitos e salva ajustes de cena",
       () => document.documentElement.scrollWidth <= window.innerWidth
     )
   ).toBe(true);
-  await page.getByRole("button", { exact: true, name: "Parar tudo" }).click();
+  await openDeskAction(page, "Parar tudo");
   await expect(page.locator("audio")).toHaveCount(0);
 });
 
@@ -248,7 +249,7 @@ test("importa 100 arquivos e reproduz 10 sons simultâneos reais", async ({
         )
     )
     .toBe(10);
-  await page.getByRole("button", { exact: true, name: "Parar tudo" }).click();
+  await openDeskAction(page, "Parar tudo");
   await expect(page.locator("audio")).toHaveCount(0);
 });
 
@@ -326,7 +327,9 @@ test("restaura backup em outro navegador e preserva dados ao cancelar ou receber
   const context = await browser.newContext();
   const other = await context.newPage();
   try {
-    await other.goto("http://127.0.0.1:3000/");
+    await other.goto(
+      test.info().project.use.baseURL ?? "http://127.0.0.1:3312/"
+    );
     await importFiles(other, "music", [wav("Biblioteca anterior", 440)]);
     await other.getByLabel("Arquivo de backup").setInputFiles(path);
     await expect(
@@ -425,9 +428,7 @@ test("decodifica e reproduz MP3 e OGG, e recusa um WAV inválido", async ({
       )
       .toBe(true);
   });
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -450,9 +451,7 @@ test("importa um áudio real, reproduz e mantém a biblioteca após reabrir", as
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("button", { exact: true, name: "Importar áudios" })
-    .click();
+  await openDeskAction(page, "Importar áudios");
   await page
     .getByRole("button", { exact: true, name: "Arquivo de áudio" })
     .click();
@@ -461,7 +460,7 @@ test("importa um áudio real, reproduz e mantém a biblioteca após reabrir", as
   await page
     .getByRole("button", { exact: true, name: "Adicionar à biblioteca" })
     .click();
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(manager(page).getByText("Chuva", { exact: true })).toBeVisible();
   await page.getByRole("button", { exact: true, name: "Tocar Chuva" }).click();
   await page.getByRole("button", { exact: true, name: "Tocar Chuva" }).focus();
@@ -510,6 +509,6 @@ test("importa um áudio real, reproduz e mantém a biblioteca após reabrir", as
     )
     .toBe(true);
   await page.reload();
-  await page.getByRole("button", { exact: true, name: "Biblioteca" }).click();
+  await openDeskAction(page, "Biblioteca");
   await expect(manager(page).getByText("Chuva", { exact: true })).toBeVisible();
 });

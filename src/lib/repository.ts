@@ -1,7 +1,5 @@
-import { sha256, validateLibrary } from "./backup";
+import { sha256 } from "./backup";
 import type { Kind, Library, Sound } from "./model";
-import { emptyLibrary } from "./model";
-import { libraryTags, normalizeLibraryTags } from "./tags";
 import { inOrder } from "./utils";
 
 const audioExtensionPattern = /\.(?:mp3|wav|ogg)$/iu;
@@ -11,109 +9,6 @@ const mimeTypes: Record<string, string> = {
   ogg: "audio/ogg",
   wav: "audio/wav",
 };
-
-function result<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export class Repository {
-  private readonly db: IDBDatabase;
-  private constructor(db: IDBDatabase) {
-    this.db = db;
-    db.onversionchange = () => db.close();
-  }
-  static async open() {
-    const request = indexedDB.open("soundbard", 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore("config");
-      request.result.createObjectStore("files");
-    };
-    return new Repository(await result(request));
-  }
-  async read(): Promise<Library> {
-    const value: unknown = await result(
-      this.db.transaction("config").objectStore("config").get("library")
-    );
-    return value ? validateLibrary(value) : emptyLibrary();
-  }
-  async file(id: string): Promise<Blob> {
-    const value: unknown = await result(
-      this.db.transaction("files").objectStore("files").get(id)
-    );
-    if (!(value instanceof Blob)) {
-      throw new Error(
-        "Áudio ausente. Restaure um backup ou importe o arquivo novamente."
-      );
-    }
-    return value;
-  }
-  commit(
-    library: Library,
-    {
-      files = new Map<string, Blob>(),
-      removed = [],
-      replace = false,
-    }: { files?: Map<string, Blob>; removed?: string[]; replace?: boolean } = {}
-  ): Promise<Library> {
-    return new Promise((resolve, reject) => {
-      const clean = validateLibrary(library);
-      const transaction = this.db.transaction(["config", "files"], "readwrite");
-      let failure: Error | null = null;
-      let next = { ...clean, revision: clean.revision + 1 };
-      transaction.oncomplete = () => resolve(next);
-      transaction.onabort = () =>
-        reject(
-          failure ??
-            (transaction.error?.name === "QuotaExceededError"
-              ? new Error(
-                  "Sem espaço no navegador. A biblioteca anterior foi preservada; exporte um backup e libere espaço."
-                )
-              : (transaction.error ??
-                new Error(
-                  "A alteração foi cancelada. A biblioteca anterior foi preservada."
-                )))
-        );
-      const store = transaction.objectStore("config");
-      const request = store.get("library");
-      request.onsuccess = () => {
-        const previous: unknown = request.result;
-        const saved = previous ? validateLibrary(previous) : emptyLibrary();
-        const { revision } = saved;
-        if (revision !== clean.revision) {
-          failure = new Error(
-            "A biblioteca mudou em outra aba. Recarregue a página antes de continuar."
-          );
-          transaction.abort();
-          return;
-        }
-        next = {
-          ...normalizeLibraryTags({
-            ...next,
-            tags: [...libraryTags(saved), ...libraryTags(next)],
-          }),
-          revision: next.revision,
-        };
-        const blobs = transaction.objectStore("files");
-        if (replace) {
-          blobs.clear();
-        }
-        for (const id of removed) {
-          blobs.delete(id);
-        }
-        for (const [id, blob] of files) {
-          blobs.put(blob, id);
-        }
-        store.put(next, "library");
-      };
-    });
-  }
-  close() {
-    this.db.close();
-  }
-}
 
 export function audioDuration(blob: Blob): Promise<number> {
   return new Promise((resolve, reject) => {

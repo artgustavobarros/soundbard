@@ -1,3 +1,57 @@
+import { test as base, expect, type Page } from "@playwright/test";
+import { emptyLibrary } from "../src/lib/model";
+
+export const test = base.extend<{ isolatedLibrary: undefined }>({
+  isolatedLibrary: [
+    async ({ baseURL, request }, use) => {
+      const port = process.env.SOUNDBARD_E2E_PORT ?? "3312";
+      const expected = `http://127.0.0.1:${port}`;
+      if (
+        !baseURL ||
+        new URL(baseURL).origin !== expected ||
+        ["3000", "8000"].includes(port)
+      ) {
+        throw new Error(
+          "O reset da biblioteca só pode acessar o servidor E2E dedicado."
+        );
+      }
+      const response = await request.get(`${expected}/api/library`);
+      if (!response.ok()) {
+        throw new Error(
+          `Não foi possível ler a biblioteca E2E: ${response.status()}`
+        );
+      }
+      const library: unknown = await response.json();
+      if (
+        !library ||
+        typeof library !== "object" ||
+        !("revision" in library) ||
+        typeof library.revision !== "number" ||
+        !Number.isSafeInteger(library.revision) ||
+        library.revision < 0
+      ) {
+        throw new Error("O servidor E2E não retornou uma revisão válida.");
+      }
+      const reset = await request.put(`${expected}/api/library`, {
+        headers: { Origin: expected },
+        multipart: {
+          library: JSON.stringify({
+            ...emptyLibrary(),
+            revision: library.revision,
+          }),
+        },
+      });
+      if (!reset.ok()) {
+        throw new Error(
+          `Não foi possível limpar a biblioteca E2E: ${reset.status()}`
+        );
+      }
+      await use(undefined);
+    },
+    { auto: true },
+  ],
+});
+
 export function wav(name: string, frequency = 220, seconds = 8) {
   const rate = 8000;
   const count = rate * seconds;
@@ -40,4 +94,17 @@ export function segmentedWav(name: string) {
     );
   }
   return file;
+}
+
+export async function openDeskAction(page: Page, name: string) {
+  await expect(
+    page.locator(
+      '[data-slot="dialog-content"][data-state="closed"], [data-slot="sheet-content"][data-state="closed"]'
+    )
+  ).toHaveCount(0);
+  const action = page.getByRole("button", { exact: true, name });
+  if (!(await action.isVisible())) {
+    await page.getByRole("button", { exact: true, name: "Abrir menu" }).click();
+  }
+  await action.click();
 }

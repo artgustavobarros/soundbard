@@ -15,6 +15,10 @@ const name = z.string().trim().min(1).max(200);
 const volume = z.number().min(0).max(1);
 const schema = z.object({
   master: volume,
+  padGroups: z
+    .array(z.object({ id, name, padIds: z.array(z.string().min(1).max(110)) }))
+    .optional(),
+  padOrder: z.array(z.string().min(1).max(110)).optional(),
   playlists: z.array(
     z.object({
       id,
@@ -53,6 +57,12 @@ const schema = z.object({
   version: z.literal(1),
 });
 
+function validPadReferences(ids: string[], pads: Set<string>) {
+  return (
+    new Set(ids).size === ids.length && ids.every((padId) => pads.has(padId))
+  );
+}
+
 export function validateLibrary(input: unknown): Library {
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
@@ -63,13 +73,28 @@ export function validateLibrary(input: unknown): Library {
   const library = parsed.data;
   const unique = (ids: string[]) => new Set(ids).size === ids.length;
   if (
-    ![library.sounds, library.playlists, library.scenes].every((items) =>
-      unique(items.map((item) => item.id))
-    )
+    ![
+      library.sounds,
+      library.playlists,
+      library.scenes,
+      library.padGroups ?? [],
+    ].every((items) => unique(items.map((item) => item.id)))
   ) {
     throw new Error("A biblioteca contém identificadores duplicados.");
   }
   const sounds = new Map(library.sounds.map((sound) => [sound.id, sound]));
+  const pads = new Set([
+    ...sounds.keys(),
+    ...library.playlists.map((playlist) => `playlist:${playlist.id}`),
+  ]);
+  if (!validPadReferences(library.padOrder ?? [], pads)) {
+    throw new Error("Ordem de pads com referência ausente ou repetida.");
+  }
+  for (const group of library.padGroups ?? []) {
+    if (!validPadReferences(group.padIds, pads)) {
+      throw new Error("Grupo de pads com referência ausente ou repetida.");
+    }
+  }
   for (const playlist of library.playlists) {
     if (
       !unique(playlist.soundIds) ||

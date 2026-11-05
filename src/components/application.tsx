@@ -40,9 +40,15 @@ import { toast } from "sonner";
 import type { AudioView, Playback } from "../lib/audio";
 import { AudioEngine } from "../lib/audio";
 import { createBackup, readBackup } from "../lib/backup";
+import { restoreWorkspaceFocus } from "../lib/dialog-focus";
 import type { Kind, Library, Playlist, Scene, Sound } from "../lib/model";
-import { deleteSound, removeFromPlaylist } from "../lib/model";
-import { prepareImport, Repository } from "../lib/repository";
+import {
+  deletePlaylist as deletePlaylistFromLibrary,
+  deleteSound,
+  removeFromPlaylist,
+} from "../lib/model";
+import { prepareImport } from "../lib/repository";
+import { ServerRepository as Repository } from "../lib/server-repository";
 import { duration, tagsFrom } from "../lib/utils";
 import { AudioToolsDialog } from "./audio-tools-dialog";
 import type { Editor } from "./editors";
@@ -96,6 +102,14 @@ function showNotice({ error, text }: Notice) {
     toast.success(text);
   }
 }
+function downloadBackup(backup: Blob, prefix = "soundbard") {
+  const url = URL.createObjectURL(backup);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.soundbard`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 export function Application() {
   const [system, setSystem] = useState<System | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -135,7 +149,7 @@ export function Application() {
     <main className="boot">
       <AudioLines size={36} />
       <h1>Soundbard</h1>
-      <p role="status">{bootError ?? "Abrindo sua biblioteca local…"}</p>
+      <p role="status">{bootError ?? "Abrindo a biblioteca central…"}</p>
       {bootError ? (
         <Button onClick={reloadPage}>Tentar novamente</Button>
       ) : null}
@@ -514,18 +528,24 @@ function useWorkspaceState({ system, notify }: WorkspaceProps) {
     () =>
       run(async () => {
         const backup = await createBackup(library, (id) => repository.file(id));
-        const url = URL.createObjectURL(backup);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = `soundbard-${new Date().toISOString().slice(0, 10)}.soundbard`;
-        anchor.click();
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        downloadBackup(backup);
         notify({
           error: false,
           text: "Backup completo exportado, incluindo os áudios.",
         });
       }, "Preparando backup completo…"),
     [library, notify, repository, run]
+  );
+  const exportLegacyLibrary = useCallback(
+    () =>
+      run(async () => {
+        downloadBackup(await repository.legacyBackup(), "soundbard-legado");
+        notify({
+          error: false,
+          text: "Biblioteca antiga exportada. Os dados originais continuam neste navegador.",
+        });
+      }, "Preparando backup da biblioteca antiga…"),
+    [notify, repository, run]
   );
   const restore = useCallback(
     (file: File) =>
@@ -665,18 +685,7 @@ function useWorkspaceState({ system, notify }: WorkspaceProps) {
         "Excluir playlist?",
         `As músicas continuam na biblioteca. As cenas que usam “${playlist.name}” ficarão sem playlist.`,
         "Excluir playlist",
-        () =>
-          commit({
-            ...library,
-            playlists: library.playlists.filter(
-              (candidate) => candidate.id !== playlist.id
-            ),
-            scenes: library.scenes.map((scene) =>
-              scene.playlistId === playlist.id
-                ? { ...scene, playlistId: null }
-                : scene
-            ),
-          })
+        () => commit(deletePlaylistFromLibrary(library, playlist.id))
       ),
     [commit, confirm, library]
   );
@@ -706,19 +715,23 @@ function useWorkspaceState({ system, notify }: WorkspaceProps) {
     closeEditor,
     commit,
     confirm,
+    connection: repository.connection,
     currentMusic,
     deleteAudio,
     deletePlaylist,
     deleteScene,
     editor,
     engine,
+    exportLegacyLibrary,
     exportLibrary,
     filteredSounds,
     importAudioFiles,
     importPreparedAudio,
     kind,
+    legacyRecoveryAvailable: repository.legacyRecoveryAvailable,
     library,
     liveCount,
+    migrationNotice: repository.migrationNotice,
     moveSound,
     music,
     mutate,
@@ -1621,7 +1634,7 @@ function WorkspaceHeader({ state }: { state: WorkspaceState }) {
   return (
     <header className="topbar">
       <div className="breadcrumb">
-        Campanha local <span>/</span> <strong>{titles[view]}</strong>
+        Biblioteca central <span>/</span> <strong>{titles[view]}</strong>
       </div>
       <div className="header-actions">
         <span
@@ -1633,7 +1646,10 @@ function WorkspaceHeader({ state }: { state: WorkspaceState }) {
           }
         >
           <span className="local-dot" />
-          {offlineReady ? "Pronto para offline" : "Uso local"}
+          {state.connection === "offline"
+            ? "Cache offline"
+            : "Servidor conectado"}
+          {offlineReady ? " · Pronto para offline" : ""}
         </span>
         <Button
           aria-label="Exportar backup"
@@ -1792,7 +1808,8 @@ function LibraryManager({ state }: { state: WorkspaceState }) {
   return (
     <Dialog onOpenChange={changeOpen} open={view !== "desk"}>
       <DialogContent
-        className="max-h-[94dvh] overflow-y-auto border-[#303030] bg-[#111] p-4 text-white sm:max-w-[1100px]"
+        className="border-border text-foreground max-h-[94dvh] overflow-y-auto bg-[var(--surface-raised)] p-4 shadow-[var(--shadow-dialog)] sm:max-w-[1100px]"
+        onCloseAutoFocus={restoreWorkspaceFocus}
         showCloseButton={false}
       >
         <DialogHeader className="flex-row flex-wrap items-center justify-between gap-3 text-left">
@@ -1830,7 +1847,8 @@ function LibraryManager({ state }: { state: WorkspaceState }) {
 
 function Workspace(props: WorkspaceProps) {
   const state = useWorkspaceState(props);
-  const { busy, editor, closeEditor, library, save, setView } = state;
+  const { busy, closeEditor, deleteAudio, editor, library, save, setView } =
+    state;
   const openManager = useCallback(() => setView("library"), [setView]);
   const [audioTools, setAudioTools] = useState<{
     source?: "youtube" | "file";
@@ -1862,6 +1880,7 @@ function Workspace(props: WorkspaceProps) {
         editor={editor}
         key={editorKey(editor)}
         library={library}
+        onDeleteSound={deleteAudio}
         onFile={openFile}
         onTrim={openTrim}
         onYouTube={openYouTube}

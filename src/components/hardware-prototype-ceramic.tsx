@@ -45,6 +45,7 @@ function CeramicSound({
         onTrigger={onTrigger}
         selected={selected}
         sound={sound}
+        subtitle={sound.kind}
       />
       <VerticalFader
         className="h-[var(--ceramic-pad-size)]!"
@@ -52,12 +53,6 @@ function CeramicSound({
         sound={sound}
       />
       <div className="col-span-2 min-w-0">
-        <h2
-          className="min-h-[34px] text-[14px]! leading-[17px]! font-semibold! tracking-normal! text-[#292c32]"
-          title={sound.name}
-        >
-          {sound.name}
-        </h2>
         <LoopToggle className="flex! w-fit" onLoop={onLoop} sound={sound} />
       </div>
     </div>
@@ -86,7 +81,7 @@ export function HardwareCeramicLayout({
       for (const rows of [2, 1]) {
         const columns = Math.min(maxColumns, Math.ceil(sounds.length / rows));
         const cellSize = (width - 24 * (columns - 1)) / columns;
-        const heightLimit = (height - 8 - (rows - 1) * 28) / rows - 86;
+        const heightLimit = (height - 8 - (rows - 1) * 28) / rows - 52;
         const padSize = Math.min(176, cellSize - 56, heightLimit);
         if (rows === 1 || padSize >= 88) {
           next = { columns, padSize: Math.max(44, padSize), rows };

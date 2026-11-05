@@ -1,6 +1,6 @@
 import type { Kind, Layer, Library, Scene } from "./model";
 import { Queue, transition } from "./model";
-import type { Repository } from "./repository";
+import type { ServerRepository as Repository } from "./server-repository";
 
 type Role = "music" | "layer" | "effect" | "preview";
 const roles: Record<Kind, Role> = {
