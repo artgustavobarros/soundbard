@@ -1,31 +1,19 @@
+import { cn } from "cn";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowDown,
-  ArrowUp,
   AudioLines,
-  BookAudio,
   Clapperboard,
   Download,
   FolderOpen,
   Headphones,
   LibraryBig,
   ListMusic,
-  Music2,
   Pause,
-  Pencil,
   Play,
   Plus,
-  Repeat2,
-  Save,
-  Search,
-  Settings2,
-  SkipBack,
-  SkipForward,
   Square,
-  Trash2,
   Upload,
   Volume2,
-  X,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -37,7 +25,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { toast } from "sonner";
-import type { AudioView, Playback } from "../lib/audio";
 import { AudioEngine } from "../lib/audio";
 import { createBackup, readBackup } from "../lib/backup";
 import { restoreWorkspaceFocus } from "../lib/dialog-focus";
@@ -49,10 +36,14 @@ import {
 } from "../lib/model";
 import { prepareImport } from "../lib/repository";
 import { ServerRepository as Repository } from "../lib/server-repository";
-import { duration, tagsFrom } from "../lib/utils";
+import { tagsFrom } from "../lib/utils";
 import { AudioToolsDialog } from "./audio-tools-dialog";
 import type { Editor } from "./editors";
-import { Editors, kindNames } from "./editors";
+import { Editors } from "./editors";
+import { LibraryView } from "./library-view";
+import { DeskView } from "./mix-view";
+import { PlaylistsView } from "./music-view";
+import { ScenesView } from "./scenes-view";
 import { SoundboardDesk } from "./soundboard-desk";
 import { Button } from "./ui/button";
 import {
@@ -62,7 +53,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Input } from "./ui/input";
 
 interface System {
   engine: AudioEngine;
@@ -146,7 +136,7 @@ export function Application() {
   return system ? (
     <Workspace notify={showNotice} system={system} />
   ) : (
-    <main className="boot">
+    <main className="text-muted-foreground [&>h1]:text-foreground flex min-h-dvh flex-col items-center justify-center gap-5 p-5 text-center [&>h1]:text-2xl [&>h1]:font-bold [&>p]:max-w-[65ch] [&>p]:leading-relaxed">
       <AudioLines size={36} />
       <h1>Soundbard</h1>
       <p role="status">{bootError ?? "Abrindo a biblioteca central…"}</p>
@@ -766,817 +756,6 @@ function useWorkspaceState({ system, notify }: WorkspaceProps) {
 }
 export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 
-function SoundRow({
-  state,
-  sound,
-  index,
-  playlist,
-}: {
-  state: WorkspaceState;
-  sound: Sound;
-  index?: number;
-  playlist?: Playlist;
-}) {
-  const {
-    activeVoices,
-    busy,
-    triggerSound,
-    moveSound,
-    removePlaylistSound,
-    openSound,
-    deleteAudio,
-  } = state;
-  const playing = activeVoices.some((voice) => voice.soundId === sound.id);
-  const play = useCallback(
-    () => triggerSound(sound.id),
-    [sound.id, triggerSound]
-  );
-  const edit = useCallback(() => openSound(sound), [openSound, sound]);
-  const remove = useCallback(() => deleteAudio(sound), [deleteAudio, sound]);
-  const moveUp = useCallback(() => {
-    if (playlist && index !== undefined) {
-      moveSound(playlist.id, index, -1);
-    }
-  }, [index, moveSound, playlist]);
-  const moveDown = useCallback(() => {
-    if (playlist && index !== undefined) {
-      moveSound(playlist.id, index, 1);
-    }
-  }, [index, moveSound, playlist]);
-  const removeFromList = useCallback(() => {
-    if (playlist) {
-      removePlaylistSound(playlist.id, sound.id);
-    }
-  }, [playlist, removePlaylistSound, sound.id]);
-  return (
-    <div className={`sound-row ${playing ? "is-playing" : ""}`}>
-      <button
-        aria-label={`Tocar ${sound.name}`}
-        className="sound-play"
-        onClick={play}
-        type="button"
-      >
-        {playing && sound.kind === "ambience" ? (
-          <Square size={15} />
-        ) : (
-          <Play size={17} />
-        )}
-      </button>
-      <div className="sound-name">
-        <strong>{sound.name}</strong>
-        <span>
-          {sound.tags.length ? sound.tags.join(" · ") : kindNames[sound.kind]}
-        </span>
-      </div>
-      <span className="sound-kind">{kindNames[sound.kind]}</span>
-      <span className="time">{duration(sound.duration)}</span>
-      {playlist && index !== undefined ? (
-        <>
-          <Button
-            aria-label={`Subir ${sound.name}`}
-            disabled={index === 0 || Boolean(busy)}
-            onClick={moveUp}
-            size="icon"
-            variant="ghost"
-          >
-            <ArrowUp />
-          </Button>
-          <Button
-            aria-label={`Descer ${sound.name}`}
-            disabled={index === playlist.soundIds.length - 1 || Boolean(busy)}
-            onClick={moveDown}
-            size="icon"
-            variant="ghost"
-          >
-            <ArrowDown />
-          </Button>
-          <Button
-            aria-label={`Remover ${sound.name} da playlist`}
-            disabled={Boolean(busy)}
-            onClick={removeFromList}
-            size="icon"
-            variant="ghost"
-          >
-            <X />
-          </Button>
-        </>
-      ) : (
-        <>
-          <Button
-            aria-label={`Editar ${sound.name}`}
-            disabled={Boolean(busy)}
-            onClick={edit}
-            size="icon"
-            variant="ghost"
-          >
-            <Settings2 />
-          </Button>
-          <Button
-            aria-label={`Excluir ${sound.name}`}
-            disabled={Boolean(busy)}
-            onClick={remove}
-            size="icon"
-            variant="ghost"
-          >
-            <Trash2 />
-          </Button>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SceneTile({ state, scene }: { state: WorkspaceState; scene: Scene }) {
-  const { activeScene, activateScene } = state;
-  const activate = useCallback(
-    () => activateScene(scene),
-    [activateScene, scene]
-  );
-  const active = activeScene?.id === scene.id;
-  return (
-    <button
-      aria-label={`Ativar cena ${scene.name}`}
-      aria-pressed={active}
-      className={`scene-button ${active ? "active" : ""}`}
-      onClick={activate}
-      type="button"
-    >
-      <Clapperboard size={20} />
-      <strong>{scene.name}</strong>
-      <span>
-        {scene.layers.length} ambientes · {scene.effectIds.length} efeitos
-      </span>
-      <span className="scene-play">
-        {active ? <AudioLines size={18} /> : <Play size={18} />}
-      </span>
-    </button>
-  );
-}
-function ScenePanel({ state }: { state: WorkspaceState }) {
-  const { activeScene, library, busy, saveMix, openScene } = state;
-  const create = useCallback(() => openScene(), [openScene]);
-  return (
-    <section className="scene-panel">
-      <div className="section-heading">
-        <div>
-          <h2>Cena em foco</h2>
-          <p>{activeScene?.name ?? "Escolha a atmosfera da sessão"}</p>
-        </div>
-        <Button
-          disabled={!activeScene || Boolean(busy)}
-          onClick={saveMix}
-          variant="outline"
-        >
-          <Save /> Salvar cena
-        </Button>
-      </div>
-      <div className="scene-buttons">
-        {library.scenes.map((scene) => (
-          <SceneTile key={scene.id} scene={scene} state={state} />
-        ))}
-        <button
-          className="new-scene"
-          disabled={Boolean(busy)}
-          onClick={create}
-          type="button"
-        >
-          <Plus size={20} /> Nova cena
-        </button>
-      </div>
-      {library.scenes.length === 0 ? (
-        <p className="empty-hint">
-          Uma cena reúne música, ambientes e efeitos. Prepare a primeira para
-          ativar tudo com um clique.
-        </p>
-      ) : null}
-    </section>
-  );
-}
-function musicToggleLabel(playback: Playback, hasMusic: boolean) {
-  if (playback.paused) {
-    return "Retomar música";
-  }
-  return hasMusic ? "Pausar música" : "Tocar playlist";
-}
-function MusicPanel({ state }: { state: WorkspaceState }) {
-  const {
-    engine,
-    playback,
-    currentMusic,
-    activePlaylist,
-    library,
-    music,
-    act,
-    openPlaylist,
-  } = state;
-  const hasMusic = Boolean(currentMusic);
-  const playlistId = activePlaylist?.id ?? library.playlists.at(0)?.id;
-  const choosePlaylist = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      const id = event.target.value;
-      act(() => engine.playPlaylist(id));
-    },
-    [act, engine]
-  );
-  const seek = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      engine.seek(Number(event.target.value)),
-    [engine]
-  );
-  const previous = useCallback(
-    () => act(() => engine.previous()),
-    [act, engine]
-  );
-  const next = useCallback(() => act(() => engine.next()), [act, engine]);
-  const toggle = useCallback(() => {
-    if (hasMusic) {
-      act(() => (playback.paused ? engine.resume() : engine.pause()));
-      return;
-    }
-    if (playlistId) {
-      act(() => engine.playPlaylist(playlistId));
-    }
-  }, [act, engine, hasMusic, playback.paused, playlistId]);
-  const volume = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      engine.setMusicVolume(Number(event.target.value)),
-    [engine]
-  );
-  const create = useCallback(() => openPlaylist(), [openPlaylist]);
-  return (
-    <section className="music-panel">
-      <div className="section-heading">
-        <h2>
-          <Music2 size={19} /> Trilha sonora
-        </h2>
-        <select
-          aria-label="Playlist em reprodução"
-          onChange={choosePlaylist}
-          value={playback.playlistId ?? ""}
-        >
-          <option disabled value="">
-            Escolher playlist
-          </option>
-          {library.playlists.map((playlist) => (
-            <option key={playlist.id} value={playlist.id}>
-              {playlist.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="now-playing">
-        <div
-          className={`record ${music && !playback.paused ? "spinning" : ""}`}
-        >
-          <Music2 size={30} />
-        </div>
-        <div>
-          <span className="muted">
-            {activePlaylist?.name ?? "Nenhuma playlist selecionada"}
-          </span>
-          <h3>{music?.name ?? "A trilha está em suas mãos"}</h3>
-          <p>
-            {music
-              ? "Reproduzindo da sua biblioteca"
-              : "Crie uma playlist com as músicas da campanha."}
-          </p>
-        </div>
-      </div>
-      <div className="music-progress">
-        <input
-          aria-label="Posição da música"
-          disabled={!currentMusic}
-          max={currentMusic?.duration || 1}
-          min="0"
-          onChange={seek}
-          step="0.1"
-          type="range"
-          value={currentMusic?.time ?? 0}
-        />
-        <div>
-          <span>{duration(currentMusic?.time ?? 0)}</span>
-          <span>{duration(currentMusic?.duration ?? 0)}</span>
-        </div>
-      </div>
-      <div className="transport">
-        <Button
-          aria-label="Música anterior"
-          disabled={!activePlaylist}
-          onClick={previous}
-          size="icon"
-          variant="ghost"
-        >
-          <SkipBack />
-        </Button>
-        <Button
-          aria-label={musicToggleLabel(playback, hasMusic)}
-          className="play-large"
-          disabled={!playlistId}
-          onClick={toggle}
-          size="icon"
-        >
-          {hasMusic && !playback.paused ? <Pause /> : <Play />}
-        </Button>
-        <Button
-          aria-label="Próxima música"
-          disabled={!activePlaylist}
-          onClick={next}
-          size="icon"
-          variant="ghost"
-        >
-          <SkipForward />
-        </Button>
-        <label className="music-volume">
-          <Volume2 size={16} />
-          <span className="sr-only">Volume da música</span>
-          <input
-            max="1"
-            min="0"
-            onChange={volume}
-            step="0.01"
-            type="range"
-            value={playback.musicVolume}
-          />
-        </label>
-      </div>
-      {library.playlists.length === 0 ? (
-        <Button className="inline-action" onClick={create} variant="ghost">
-          <Plus size={16} /> Criar primeira playlist
-        </Button>
-      ) : null}
-    </section>
-  );
-}
-function MixerRow({
-  engine,
-  sound,
-  voice,
-}: {
-  engine: AudioEngine;
-  sound: Sound;
-  voice: AudioView;
-}) {
-  const stop = useCallback(
-    () => engine.stopVoice(voice.id),
-    [engine, voice.id]
-  );
-  const volume = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      engine.setVolume(voice.id, Number(event.target.value)),
-    [engine, voice.id]
-  );
-  const loop = useCallback(
-    () => engine.setLoop(voice.id, !voice.loop),
-    [engine, voice.id, voice.loop]
-  );
-  return (
-    <div className="mixer-row">
-      <div className="mixer-title">
-        <span className="live-light on" />
-        <strong>{sound.name}</strong>
-        <span className="muted">{duration(voice.time)}</span>
-        <Button
-          aria-label={`Parar ${sound.name}`}
-          onClick={stop}
-          size="icon"
-          variant="ghost"
-        >
-          <X size={15} />
-        </Button>
-      </div>
-      <div className="mixer-controls">
-        <Volume2 size={15} />
-        <input
-          aria-label={`Volume de ${sound.name}`}
-          max="1"
-          min="0"
-          onChange={volume}
-          step="0.01"
-          type="range"
-          value={voice.volume}
-        />
-        <output>{Math.round(voice.volume * 100)}%</output>
-        <button
-          aria-label={`Loop de ${sound.name}`}
-          aria-pressed={voice.loop}
-          className={`loop-toggle ${voice.loop ? "enabled" : ""}`}
-          onClick={loop}
-          type="button"
-        >
-          <Repeat2 size={17} />
-        </button>
-      </div>
-    </div>
-  );
-}
-function LayersPanel({ state }: { state: WorkspaceState }) {
-  const { engine, activeVoices, soundById, setView } = state;
-  const layers = activeVoices.filter((voice) => voice.role !== "music");
-  const library = useCallback(() => setView("library"), [setView]);
-  return (
-    <section className="layers-panel">
-      <div className="section-heading">
-        <h2>
-          <AudioLines size={19} /> Camadas de som
-        </h2>
-        <span className="muted">{layers.length} ativas</span>
-      </div>
-      {layers.map((voice) => {
-        const sound = soundById.get(voice.soundId);
-        return sound ? (
-          <MixerRow
-            engine={engine}
-            key={voice.id}
-            sound={sound}
-            voice={voice}
-          />
-        ) : null;
-      })}
-      {layers.length === 0 ? (
-        <div className="empty-panel">
-          <AudioLines size={29} />
-          <p>O ambiente começa aqui.</p>
-          <span>Ative uma cena ou toque um som da biblioteca.</span>
-          <Button onClick={library} variant="ghost">
-            Abrir biblioteca
-          </Button>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-function EffectButton({
-  sound,
-  trigger,
-}: {
-  sound: Sound;
-  trigger: WorkspaceState["triggerSound"];
-}) {
-  const play = useCallback(() => trigger(sound.id), [sound.id, trigger]);
-  return (
-    <button
-      aria-label={`Disparar ${sound.name}`}
-      className="effect-button"
-      onClick={play}
-      type="button"
-    >
-      <Play size={16} />
-      <strong>{sound.name}</strong>
-      <span>{duration(sound.duration)}</span>
-    </button>
-  );
-}
-function EffectsPanel({ state }: { state: WorkspaceState }) {
-  const { library, activeScene, triggerSound } = state;
-  const effects = library.sounds.filter(
-    (sound) =>
-      sound.kind === "effect" &&
-      (!activeScene || activeScene.effectIds.includes(sound.id))
-  );
-  return (
-    <section className="effects-panel">
-      <div className="section-heading">
-        <div>
-          <h2>Efeitos à mão</h2>
-          <p>Clique para disparar. Clique novamente para sobrepor.</p>
-        </div>
-        <span className="muted">
-          {activeScene?.name ?? "Da sua biblioteca"}
-        </span>
-      </div>
-      <div className="effects-grid">
-        {effects.map((sound) => (
-          <EffectButton key={sound.id} sound={sound} trigger={triggerSound} />
-        ))}
-      </div>
-      {effects.length === 0 ? (
-        <p className="empty-hint">
-          Importe sons como Efeito e adicione-os à cena. Uma espada, uma porta,
-          um trovão: cada detalhe conta.
-        </p>
-      ) : null}
-    </section>
-  );
-}
-function DeskView({ state }: { state: WorkspaceState }) {
-  return (
-    <>
-      <ScenePanel state={state} />
-      <div className="desk-grid">
-        <MusicPanel state={state} />
-        <LayersPanel state={state} />
-      </div>
-      <EffectsPanel state={state} />
-    </>
-  );
-}
-function LibraryView({ state }: { state: WorkspaceState }) {
-  const {
-    library,
-    filteredSounds,
-    search,
-    kind,
-    setSearch,
-    setKind,
-    openImport,
-  } = state;
-  const searchChanged = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value),
-    [setSearch]
-  );
-  const kindChanged = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => setKind(event.target.value),
-    [setKind]
-  );
-  const empty = library.sounds.length === 0;
-  return (
-    <section className="library-panel">
-      <div className="library-toolbar">
-        <div className="search-field">
-          <Search size={18} />
-          <Input
-            aria-label="Buscar sons"
-            onChange={searchChanged}
-            placeholder="Buscar por nome ou tag…"
-            value={search}
-          />
-        </div>
-        <select aria-label="Filtrar tipo" onChange={kindChanged} value={kind}>
-          <option value="all">Todos os tipos</option>
-          {Object.entries(kindNames).map(([value, title]) => (
-            <option key={value} value={value}>
-              {title}
-            </option>
-          ))}
-        </select>
-        <span className="muted">{filteredSounds.length} sons</span>
-      </div>
-      {filteredSounds.map((sound) => (
-        <SoundRow key={sound.id} sound={sound} state={state} />
-      ))}
-      {filteredSounds.length === 0 ? (
-        <div className="large-empty">
-          <BookAudio size={40} />
-          <h2>
-            {empty
-              ? "Sua campanha merece uma trilha."
-              : "Nenhum som encontrado"}
-          </h2>
-          <p>
-            {empty
-              ? "Importe seus arquivos MP3, WAV ou OGG. Organize por tags e prepare a próxima sessão."
-              : "Tente outro nome, tag ou tipo de som."}
-          </p>
-          {empty ? (
-            <Button onClick={openImport}>
-              <Upload /> Importar primeiros sons
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-function PlaylistTab({
-  state,
-  playlist,
-}: {
-  state: WorkspaceState;
-  playlist: Playlist;
-}) {
-  const { shownPlaylist, selectPlaylist } = state;
-  const select = useCallback(
-    () => selectPlaylist(playlist.id),
-    [playlist.id, selectPlaylist]
-  );
-  return (
-    <button
-      className={shownPlaylist?.id === playlist.id ? "selected" : ""}
-      onClick={select}
-      type="button"
-    >
-      {playlist.name}
-      <span>{playlist.soundIds.length}</span>
-    </button>
-  );
-}
-function PlaylistDetail({
-  state,
-  playlist,
-}: {
-  state: WorkspaceState;
-  playlist: Playlist;
-}) {
-  const {
-    engine,
-    act,
-    openPlaylist,
-    deletePlaylist,
-    updateShuffle,
-    updateRepeat,
-    soundById,
-    busy,
-  } = state;
-  const edit = useCallback(
-    () => openPlaylist(playlist),
-    [openPlaylist, playlist]
-  );
-  const play = useCallback(
-    () => act(() => engine.playPlaylist(playlist.id)),
-    [act, engine, playlist.id]
-  );
-  const remove = useCallback(
-    () => deletePlaylist(playlist),
-    [deletePlaylist, playlist]
-  );
-  const shuffle = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      updateShuffle(playlist.id, event.target.checked),
-    [playlist.id, updateShuffle]
-  );
-  const repeat = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) =>
-      updateRepeat(playlist.id, event.target.value),
-    [playlist.id, updateRepeat]
-  );
-  return (
-    <div className="playlist-detail">
-      <div className="section-heading">
-        <div>
-          <h2>{playlist.name}</h2>
-          <p>
-            {playlist.soundIds.length} músicas ·{" "}
-            {playlist.shuffle ? "Embaralhada" : "Ordem escolhida"}
-          </p>
-        </div>
-        <div className="row-actions">
-          <Button disabled={Boolean(busy)} onClick={edit} variant="outline">
-            <Pencil /> Editar
-          </Button>
-          <Button disabled={playlist.soundIds.length === 0} onClick={play}>
-            <Play /> Tocar
-          </Button>
-          <Button
-            aria-label={`Excluir playlist ${playlist.name}`}
-            disabled={Boolean(busy)}
-            onClick={remove}
-            size="icon"
-            variant="ghost"
-          >
-            <Trash2 />
-          </Button>
-        </div>
-      </div>
-      <div className="playlist-options">
-        <label className="check-line">
-          <input
-            checked={playlist.shuffle}
-            disabled={Boolean(busy)}
-            onChange={shuffle}
-            type="checkbox"
-          />{" "}
-          Embaralhar
-        </label>
-        <label>
-          Repetição{" "}
-          <select
-            aria-label="Repetição da playlist"
-            disabled={Boolean(busy)}
-            onChange={repeat}
-            value={playlist.repeat}
-          >
-            <option value="off">Desligada</option>
-            <option value="one">Música atual</option>
-            <option value="all">Playlist inteira</option>
-          </select>
-        </label>
-      </div>
-      {playlist.soundIds.map((id, index) => {
-        const sound = soundById.get(id);
-        return sound ? (
-          <SoundRow
-            index={index}
-            key={id}
-            playlist={playlist}
-            sound={sound}
-            state={state}
-          />
-        ) : null;
-      })}
-      {playlist.soundIds.length === 0 ? (
-        <div className="large-empty">
-          <ListMusic size={34} />
-          <h3>Escolha as músicas deste momento.</h3>
-          <Button onClick={edit} variant="outline">
-            Adicionar músicas
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-function PlaylistsView({ state }: { state: WorkspaceState }) {
-  const { library, shownPlaylist, openPlaylist } = state;
-  const create = useCallback(() => openPlaylist(), [openPlaylist]);
-  return (
-    <section className="playlists-view">
-      <div className="playlist-tabs">
-        {library.playlists.map((playlist) => (
-          <PlaylistTab key={playlist.id} playlist={playlist} state={state} />
-        ))}
-      </div>
-      {shownPlaylist ? (
-        <PlaylistDetail playlist={shownPlaylist} state={state} />
-      ) : (
-        <div className="large-empty">
-          <ListMusic size={40} />
-          <h2>Uma playlist para cada momento.</h2>
-          <p>
-            Combate, viagem ou suspense. Suas músicas podem participar de
-            quantas listas você quiser.
-          </p>
-          <Button onClick={create}>
-            <Plus /> Criar primeira playlist
-          </Button>
-        </div>
-      )}
-    </section>
-  );
-}
-function SceneListRow({
-  state,
-  scene,
-}: {
-  state: WorkspaceState;
-  scene: Scene;
-}) {
-  const { library, openScene, activateScene, deleteScene, busy } = state;
-  const edit = useCallback(() => openScene(scene), [openScene, scene]);
-  const activate = useCallback(
-    () => activateScene(scene),
-    [activateScene, scene]
-  );
-  const remove = useCallback(() => deleteScene(scene), [deleteScene, scene]);
-  return (
-    <div className="scene-list-row">
-      <Clapperboard size={24} />
-      <div>
-        <h2>{scene.name}</h2>
-        <p>
-          {library.playlists.find(
-            (playlist) => playlist.id === scene.playlistId
-          )?.name ?? "Sem música"}{" "}
-          · {scene.layers.length} ambientes · {scene.effectIds.length} efeitos
-        </p>
-      </div>
-      <Button
-        aria-label={`Editar cena ${scene.name}`}
-        disabled={Boolean(busy)}
-        onClick={edit}
-        variant="outline"
-      >
-        <Pencil /> Editar
-      </Button>
-      <Button aria-label={`Ativar cena ${scene.name}`} onClick={activate}>
-        <Play /> Ativar
-      </Button>
-      <Button
-        aria-label={`Excluir cena ${scene.name}`}
-        disabled={Boolean(busy)}
-        onClick={remove}
-        size="icon"
-        variant="ghost"
-      >
-        <Trash2 />
-      </Button>
-    </div>
-  );
-}
-function ScenesView({ state }: { state: WorkspaceState }) {
-  const { library, openScene } = state;
-  const create = useCallback(() => openScene(), [openScene]);
-  return (
-    <section className="scene-list">
-      {library.scenes.map((scene) => (
-        <SceneListRow key={scene.id} scene={scene} state={state} />
-      ))}
-      {library.scenes.length === 0 ? (
-        <div className="large-empty">
-          <Clapperboard size={40} />
-          <h2>Prepare o próximo lugar da história.</h2>
-          <p>
-            Combine uma playlist, chuva, conversas e efeitos. Ative o conjunto
-            com um clique durante a sessão.
-          </p>
-          <Button onClick={create}>
-            <Plus /> Criar primeira cena
-          </Button>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function NavigationButton({
   state,
   id,
@@ -1591,22 +770,33 @@ function NavigationButton({
   return (
     <button
       aria-label={id === "scenes" ? "Gerenciar cenas" : titles[id]}
-      className={view === id ? "nav-item selected" : "nav-item"}
+      className={cn(
+        "text-muted-foreground flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-hover)] sm:gap-2.5 sm:text-sm",
+        view === id
+          ? "text-foreground bg-[var(--selected)] font-semibold shadow-xs"
+          : "hover:text-foreground"
+      )}
       onClick={select}
       type="button"
     >
-      <Icon size={19} />
+      <Icon size={18} />
       <span>{id === "scenes" ? "Gerenciar cenas" : titles[id]}</span>
-      {id === "library" ? <small>{library.sounds.length}</small> : null}
+      {id === "library" ? (
+        <small className="ml-1.5 hidden rounded bg-[var(--surface-inset)] px-1.5 py-0.5 text-[11px] tabular-nums sm:inline">
+          {library.sounds.length}
+        </small>
+      ) : null}
     </button>
   );
 }
+
 const navigation = [
   { Icon: Headphones, id: "mix" },
   { Icon: LibraryBig, id: "library" },
   { Icon: ListMusic, id: "playlists" },
   { Icon: Clapperboard, id: "scenes" },
 ] satisfies { id: View; Icon: LucideIcon }[];
+
 function WorkspaceHeader({ state }: { state: WorkspaceState }) {
   const {
     view,
@@ -1632,20 +822,21 @@ function WorkspaceHeader({ state }: { state: WorkspaceState }) {
     [restore]
   );
   return (
-    <header className="topbar">
-      <div className="breadcrumb">
-        Biblioteca central <span>/</span> <strong>{titles[view]}</strong>
+    <header className="border-border flex min-h-[65px] flex-wrap items-center justify-between gap-4 border-b py-3">
+      <div className="text-muted-foreground hidden text-xs sm:flex sm:items-center sm:gap-3">
+        Biblioteca central <span>/</span>{" "}
+        <strong className="text-foreground font-medium">{titles[view]}</strong>
       </div>
-      <div className="header-actions">
+      <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
         <span
-          className="offline-state"
+          className="text-muted-foreground mr-auto flex items-center gap-1.5 text-xs sm:mr-3"
           title={
             offlineReady
               ? "Interface preparada para abrir sem internet."
               : "O modo offline é preparado na versão compilada."
           }
         >
-          <span className="local-dot" />
+          <span className="size-1.5 shrink-0 rounded-full bg-[var(--playback)]" />
           {state.connection === "offline"
             ? "Cache offline"
             : "Servidor conectado"}
@@ -1687,6 +878,7 @@ function WorkspaceHeader({ state }: { state: WorkspaceState }) {
     </header>
   );
 }
+
 function GlobalControls({ state }: { state: WorkspaceState }) {
   const { engine, playback, liveCount, mutate, act } = state;
   const master = useCallback(
@@ -1714,17 +906,28 @@ function GlobalControls({ state }: { state: WorkspaceState }) {
     status = `${liveCount} som(ns) pausado(s)`;
   }
   return (
-    <section aria-label="Controles gerais" className="global-controls">
-      <div className="live-status">
+    <section
+      aria-label="Controles gerais"
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-xl bg-[var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:gap-4 sm:p-4"
+    >
+      <div className="flex flex-1 items-center gap-2 text-xs whitespace-nowrap">
         <span
-          className={`live-light ${liveCount > 0 && !playback.paused ? "on" : ""}`}
+          className={cn(
+            "size-2 shrink-0 rounded-full transition-colors",
+            liveCount > 0 && !playback.paused
+              ? "bg-[var(--playback)] shadow-[0_0_8px_var(--playback)]"
+              : "bg-[var(--border-strong)]"
+          )}
         />
-        <strong>{status}</strong>
+        <strong className="font-medium">{status}</strong>
       </div>
-      <div className="master-control">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
         <Volume2 size={17} />
-        <label htmlFor="master-volume">Volume geral</label>
+        <label className="hidden sm:inline" htmlFor="master-volume">
+          Volume geral
+        </label>
         <input
+          className="w-20 sm:w-28"
           id="master-volume"
           max="1"
           min="0"
@@ -1735,14 +938,16 @@ function GlobalControls({ state }: { state: WorkspaceState }) {
           type="range"
           value={playback.master}
         />
-        <output>{Math.round(playback.master * 100)}%</output>
+        <output className="w-8 text-right text-xs tabular-nums">
+          {Math.round(playback.master * 100)}%
+        </output>
       </div>
       <Button disabled={liveCount === 0} onClick={toggle} variant="outline">
         {playback.paused ? <Play /> : <Pause />}
         {playback.paused ? "Retomar tudo" : "Pausar tudo"}
       </Button>
       <Button
-        className="stop-all"
+        className="text-destructive hover:text-destructive"
         disabled={liveCount === 0}
         onClick={stop}
         variant="ghost"
@@ -1752,15 +957,18 @@ function GlobalControls({ state }: { state: WorkspaceState }) {
     </section>
   );
 }
+
 function PageHeading({ state }: { state: WorkspaceState }) {
   const { view, busy, openScene, openPlaylist } = state;
   const newScene = useCallback(() => openScene(), [openScene]);
   const newPlaylist = useCallback(() => openPlaylist(), [openPlaylist]);
   return (
-    <div className="page-heading">
+    <div className="mb-6 flex items-center justify-between gap-4">
       <div>
-        <h1>{titles[view]}</h1>
-        <p>{subtitles[view]}</p>
+        <h1 className="text-xl font-bold sm:text-2xl">{titles[view]}</h1>
+        <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+          {subtitles[view]}
+        </p>
       </div>
       {view === "scenes" ? (
         <Button disabled={Boolean(busy)} onClick={newScene}>
@@ -1779,6 +987,7 @@ function PageHeading({ state }: { state: WorkspaceState }) {
     </div>
   );
 }
+
 function editorKey(editor: Editor | null) {
   if (!editor) {
     return;

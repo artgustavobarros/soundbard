@@ -1,5 +1,6 @@
+import { cn } from "cn";
 import { AudioLines, Youtube } from "lucide-react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import { restoreWorkspaceFocus } from "../lib/dialog-focus";
 import type { Layer, Library, Playlist, Scene, Sound } from "../lib/model";
@@ -15,6 +16,45 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+
+function CheckLine({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: O componente encapsula o Checkbox e o texto via children
+    <label
+      className={cn(
+        "flex cursor-pointer items-center gap-2.5 py-2 text-[13px] break-words select-none [&>button]:shrink-0 [&>input]:shrink-0 [&>span]:min-w-0 [&>span]:break-words",
+        className
+      )}
+    >
+      {children}
+    </label>
+  );
+}
+
+function Picker({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "max-h-[220px] overflow-auto rounded-lg bg-[var(--surface-inset)] px-3 py-1.5 shadow-[var(--shadow-inset)] [&>p]:py-2.5 [&>p]:leading-[1.7]",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 export type Editor =
   | { type: "import" }
@@ -113,9 +153,9 @@ function SoundFields({ sound, tags }: { sound: Sound; tags: string[] }) {
         step="0.01"
         type="range"
       />
-      <label className="check-line">
+      <CheckLine>
         <Checkbox defaultChecked={sound.loop} name="loop" /> Repetir este som
-      </label>
+      </CheckLine>
     </>
   );
 }
@@ -150,44 +190,44 @@ function PlaylistFields({
         <option value="one">Repetir música atual</option>
         <option value="all">Repetir playlist</option>
       </select>
-      <label className="check-line">
+      <CheckLine>
         <Checkbox defaultChecked={playlist?.shuffle ?? false} name="shuffle" />{" "}
         Embaralhar músicas
-      </label>
+      </CheckLine>
       <h3>Músicas da biblioteca</h3>
-      <div className="picker">
+      <Picker>
         {music.map((sound) => (
-          <label className="check-line" key={sound.id}>
+          <CheckLine key={sound.id}>
             <Checkbox
               defaultChecked={selected.has(sound.id)}
               name="soundIds"
               value={sound.id}
             />
             <span>{sound.name}</span>
-          </label>
+          </CheckLine>
         ))}
         {music.length === 0 ? (
-          <p className="muted">
+          <p className="text-muted-foreground text-[13px]">
             Importe arquivos como Música para montar sua playlist.
           </p>
         ) : null}
-      </div>
+      </Picker>
     </>
   );
 }
 
 function SceneLayerFields({ sound, layer }: { sound: Sound; layer?: Layer }) {
   return (
-    <div className="layer-picker">
-      <label className="check-line">
+    <div className="border-border border-b py-1.5">
+      <CheckLine>
         <Checkbox
           defaultChecked={Boolean(layer)}
           name="layers"
           value={sound.id}
         />
         <span>{sound.name}</span>
-      </label>
-      <div className="layer-options">
+      </CheckLine>
+      <div className="[&>label:first-child]:text-muted-foreground flex items-center gap-5 pl-6 [&_input[type=range]]:w-full [&>label:first-child]:grid [&>label:first-child]:flex-1 [&>label:first-child]:gap-1 [&>label:first-child]:text-[11px]">
         <label>
           Volume de {sound.name}
           <input
@@ -199,13 +239,13 @@ function SceneLayerFields({ sound, layer }: { sound: Sound; layer?: Layer }) {
             type="range"
           />
         </label>
-        <label className="check-line">
+        <CheckLine>
           <Checkbox
             defaultChecked={layer?.loop ?? sound.loop}
             name={`loop-${sound.id}`}
           />{" "}
           Loop
-        </label>
+        </CheckLine>
       </div>
     </div>
   );
@@ -261,7 +301,7 @@ function SceneFields({ scene, library }: { scene?: Scene; library: Library }) {
         type="range"
       />
       <h3>Ambientes</h3>
-      <div className="picker">
+      <Picker>
         {ambience.map((sound) => (
           <SceneLayerFields
             key={sound.id}
@@ -270,29 +310,29 @@ function SceneFields({ scene, library }: { scene?: Scene; library: Library }) {
           />
         ))}
         {ambience.length === 0 ? (
-          <p className="muted">
+          <p className="text-muted-foreground text-[13px]">
             Importe arquivos como Ambiente para criar camadas.
           </p>
         ) : null}
-      </div>
+      </Picker>
       <h3>Efeitos disponíveis</h3>
-      <div className="picker">
+      <Picker>
         {effects.map((sound) => (
-          <label className="check-line" key={sound.id}>
+          <CheckLine key={sound.id}>
             <Checkbox
               defaultChecked={selectedEffects.has(sound.id)}
               name="effects"
               value={sound.id}
             />
             <span>{sound.name}</span>
-          </label>
+          </CheckLine>
         ))}
         {effects.length === 0 ? (
-          <p className="muted">
+          <p className="text-muted-foreground text-[13px]">
             Os efeitos ficam prontos para disparar durante a cena.
           </p>
         ) : null}
-      </div>
+      </Picker>
     </>
   );
 }
@@ -377,7 +417,7 @@ export function Editors({
   return (
     <Dialog onOpenChange={handleClose} open>
       <DialogContent
-        className="editor"
+        className="sm:max-w-[500px]"
         onCloseAutoFocus={restoreWorkspaceFocus}
       >
         <DialogHeader>
@@ -413,15 +453,21 @@ export function Editors({
               </Button>
             )}
             <form onSubmit={handleSubmit}>
-              <fieldset className="form-fields" disabled={Boolean(busy)}>
+              <fieldset
+                className="mt-2.5 flex min-w-0 flex-col gap-3 border-0 p-0 [&>h3]:mt-3 [&>h3]:text-sm [&>h3]:font-semibold [&>label]:mt-1.5"
+                disabled={Boolean(busy)}
+              >
                 <EditorFields editor={editor} library={library} />
               </fieldset>
               {busy ? (
-                <p className="busy-message" role="status">
+                <p
+                  className="text-foreground py-2.5 text-[13px] leading-[1.7]"
+                  role="status"
+                >
                   {busy}
                 </p>
               ) : null}
-              <div className="dialog-actions flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-6">
                 {editor.type === "sound" && onDeleteSound ? (
                   <Button
                     disabled={Boolean(busy)}
